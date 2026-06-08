@@ -223,22 +223,24 @@ class AudioEngine:
                 import wave
                 import numpy as np
                 import urllib.request
-                import sounddevice as sd
-                from piper import PiperVoice
+                import numpy as np
+                import os
+                from scipy.io.wavfile import write
                 
-                self.preload_piper_model()
-                    
                 print("AudioEngine: Synthèse Piper en cours...")
-                wav_path_piper = "piper_out.wav"
-                with wave.open(wav_path_piper, 'wb') as wav_file:
-                    wav_file.setnchannels(1)
-                    wav_file.setsampwidth(2)
-                    wav_file.setframerate(self.piper_voice.config.sample_rate)
-                    self.piper_voice.synthesize(text, wav_file)
+                wav_path_piper = os.path.abspath("piper_out.wav")
+                
+                audio_arrays = []
+                for chunk in self.piper_voice.synthesize(text):
+                    audio_arrays.append(chunk.audio_int16_array)
                     
-                import winsound
-                print("AudioEngine: Lecture Piper en cours (via winsound)...")
-                winsound.PlaySound(wav_path_piper, winsound.SND_FILENAME)
+                if audio_arrays:
+                    audio_data = np.concatenate(audio_arrays)
+                    write(wav_path_piper, self.piper_voice.config.sample_rate, audio_data)
+                    print(f"AudioEngine: Fichier Piper généré ({len(audio_data)} samples).")
+                    
+                    print("AudioEngine: Lecture Piper en cours (via powershell)...")
+                    os.system(f'powershell -c "(New-Object Media.SoundPlayer \'{wav_path_piper}\').PlaySync()"')
                 return
             except Exception as e:
                 print(f"AudioEngine: Erreur avec Piper TTS ({e}). Fallback sur Windows TTS.")
@@ -262,16 +264,16 @@ class AudioEngine:
                 audio_array = audio_array.cpu().numpy().squeeze()
                 sample_rate = self.bark_model.generation_config.sample_rate
                 
-                # Sauvegarde en WAV puis lecture avec winsound pour garantir la sortie sur les enceintes
-                wav_path_bark = "bark_out.wav"
+                # Sauvegarde en WAV puis lecture avec powershell
+                import os
+                wav_path_bark = os.path.abspath("bark_out.wav")
                 from scipy.io.wavfile import write
-                # Conversion float32 -> int16 pour winsound
                 audio_int16 = (audio_array * 32767).astype(np.int16)
                 write(wav_path_bark, sample_rate, audio_int16)
+                print(f"AudioEngine: Fichier Bark généré ({len(audio_int16)} samples).")
                 
-                import winsound
-                print("AudioEngine: Lecture Bark en cours (via winsound)...")
-                winsound.PlaySound(wav_path_bark, winsound.SND_FILENAME)
+                print("AudioEngine: Lecture Bark en cours (via powershell)...")
+                os.system(f'powershell -c "(New-Object Media.SoundPlayer \'{wav_path_bark}\').PlaySync()"')
                 return
             except Exception as e:
                 print(f"AudioEngine: Erreur avec Bark TTS ({e}). Fallback sur Windows TTS.")
