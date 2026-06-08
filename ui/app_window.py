@@ -206,8 +206,37 @@ class CoreNodeApp(ctk.CTk):
         self.gateway_log_box.grid(row=1, column=0, padx=10, pady=(0, 20), sticky="nsew")
         self.gateway_log_box.configure(state="disabled")
 
+        # ─── Loading Overlay ───
+        self.loading_overlay = ctk.CTkFrame(self, fg_color="#0a0a0a", corner_radius=0)
+        self.loading_label = ctk.CTkLabel(self.loading_overlay, text="Chargement en cours...", font=ctk.CTkFont(size=24, weight="bold"))
+        self.loading_label.pack(expand=True, pady=(0, 20))
+        self.loading_progress = ctk.CTkProgressBar(self.loading_overlay, mode="indeterminate", width=400)
+        self.loading_progress.pack(expand=True, pady=(0, 0))
+
         self.after(100, self.fetch_ollama_models)
         self.check_cuda()
+
+    def show_loading(self, message="Chargement en cours...", is_determinate=False):
+        self.loading_label.configure(text=message)
+        if is_determinate:
+            self.loading_progress.configure(mode="determinate")
+            self.loading_progress.set(0)
+        else:
+            self.loading_progress.configure(mode="indeterminate")
+            self.loading_progress.start()
+        self.loading_overlay.place(relx=0, rely=0, relwidth=1, relheight=1)
+        self.loading_overlay.lift()
+        self.update()
+
+    def update_loading_progress(self, pct, message):
+        self.loading_progress.set(pct)
+        self.loading_label.configure(text=message)
+        self.update()
+
+    def hide_loading(self):
+        self.loading_progress.stop()
+        self.loading_overlay.place_forget()
+        self.update()
 
     def check_cuda(self):
         import torch
@@ -247,22 +276,30 @@ class CoreNodeApp(ctk.CTk):
 
     def on_stt_changed(self, choice):
         self.add_log(f"📥 Téléchargement/Chargement du modèle STT : {choice} en cours...")
+        self.show_loading(f"Chargement du modèle STT :\n{choice}")
         def _done(actual_model):
             self.add_log(f"✅ Modèle STT '{actual_model}' installé et prêt à l'emploi !")
+            self.after(0, self.hide_loading)
         if self.audio_engine:
             threading.Thread(target=self.audio_engine.preload_stt_model, args=(choice, _done), daemon=True).start()
+        else:
+            self.hide_loading()
 
     def on_tts_changed(self, choice):
         if "Bark" in choice:
             self.add_log(f"📥 Téléchargement/Chargement de {choice} en cours (Plusieurs Go)...")
+            self.show_loading(f"Chargement de {choice}\nCela peut prendre plusieurs minutes...")
             def _done():
                 self.add_log(f"✅ Voix Bark installée et prête à l'emploi !")
+                self.after(0, self.hide_loading)
             if self.audio_engine:
                 threading.Thread(target=self.audio_engine.preload_bark_model, args=(_done,), daemon=True).start()
         elif "Piper" in choice:
             self.add_log(f"📥 Téléchargement/Chargement de {choice} en cours (15 Mo)...")
+            self.show_loading(f"Chargement de {choice}...")
             def _done():
                 self.add_log(f"✅ Voix Piper installée et prête à l'emploi !")
+                self.after(0, self.hide_loading)
             if self.audio_engine:
                 threading.Thread(target=self.audio_engine.preload_piper_model, args=(_done,), daemon=True).start()
         else:
@@ -305,8 +342,7 @@ class CoreNodeApp(ctk.CTk):
             return
         self.install_btn.configure(state="disabled", text="Installation...")
         self.install_status.configure(text=f"Connexion...")
-        self.install_progressbar.pack(side="left", padx=10, before=self.install_status)
-        self.install_progressbar.set(0)
+        self.show_loading(f"Téléchargement de {model_name}...", is_determinate=True)
         
         def _pull():
             import json
@@ -317,15 +353,15 @@ class CoreNodeApp(ctk.CTk):
                         data = json.loads(line)
                         status = data.get("status", "")
                         if "total" in data and "completed" in data and data["total"] > 0:
-                            pct = int(data["completed"] / data["total"] * 100)
-                            self.after(0, lambda p=pct, s=status: self.update_install_progress(p, s))
+                            pct = data["completed"] / data["total"]
+                            self.after(0, lambda p=pct, s=status: self.update_loading_progress(p, f"Téléchargement de {model_name}\n{s} ({int(p*100)}%)"))
                         else:
-                            self.after(0, lambda s=status: self.update_install_progress(None, s))
+                            self.after(0, lambda s=status: self.loading_label.configure(text=f"Installation: {s}"))
                 self.after(0, lambda: self.install_status.configure(text="✅ Terminé", text_color="green"))
             except Exception as e:
                 self.after(0, lambda err=e: self.install_status.configure(text=f"❌ Erreur: {err}", text_color="red"))
             finally:
-                self.after(0, lambda: self.install_progressbar.pack_forget())
+                self.after(0, self.hide_loading)
                 self.after(0, lambda: self.install_btn.configure(state="normal", text="⬇ Installer"))
                 self.after(0, lambda: self.install_entry.delete(0, 'end'))
                 self.after(0, self.fetch_ollama_models)
@@ -340,9 +376,18 @@ class CoreNodeApp(ctk.CTk):
         else:
             model = self.llm_optionmenu.get()
             if model and model not in ["Aucun modèle", "Chargement...", "Ollama injoignable", "Erreur API Ollama"]:
-                self.model_running = True
-                self.toggle_model_btn.configure(text="⏹ Stopper", fg_color="red", hover_color="darkred")
-                self.model_status_label.configure(text=f"Statut : Modèle {model} en cours d'exécution", text_color="green")
+                self.show_loading(f"Démarrage du LLM :\n{model}")
+                def _start():
+                    # Simulation d'un chargement si le modèle n'est pas encore en mémoire
+                    import time
+                    time.sleep(1)
+                    if self.llm_engine:
+                        self.llm_engine.load_model(model)
+                    self.after(0, self.hide_loading)
+                    self.after(0, lambda: self.toggle_model_btn.configure(text="⏹ Stopper", fg_color="red", hover_color="darkred"))
+                    self.after(0, lambda: self.model_status_label.configure(text=f"Statut : Modèle {model} en cours d'exécution", text_color="green"))
+                    self.after(0, lambda: setattr(self, 'model_running', True))
+                threading.Thread(target=_start, daemon=True).start()
 
     def open_settings(self):
         SettingsWindow(self)
