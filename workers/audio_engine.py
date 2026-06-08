@@ -10,7 +10,6 @@ class AudioEngine:
         self.stt_enabled = False
         self.tts_enabled = False
         self.whisper_model = None
-        self.tts_engine = None
         self.is_recording = False
         self.audio_data = []
         self.sample_rate = 16000
@@ -78,19 +77,31 @@ class AudioEngine:
         return texte
 
     def process_tts(self, text: str):
-        """Génère l'audio avec pyttsx3 et le joue directement."""
+        """Génère l'audio avec pyttsx3 de manière sécurisée pour les threads."""
         if not text:
             return
             
-        if self.tts_engine is None:
-            self.tts_engine = pyttsx3.init()
-            # Optionnel : sélectionner une voix française
-            voices = self.tts_engine.getProperty('voices')
+        # Initialisation COM pour Windows dans un thread secondaire
+        try:
+            import pythoncom
+            pythoncom.CoInitialize()
+        except ImportError:
+            pass
+
+        try:
+            engine = pyttsx3.init()
+            voices = engine.getProperty('voices')
             for voice in voices:
                 if 'fr' in voice.languages or 'French' in voice.name:
-                    self.tts_engine.setProperty('voice', voice.id)
+                    engine.setProperty('voice', voice.id)
                     break
-        
-        print("AudioEngine: Lecture TTS en cours...")
-        self.tts_engine.say(text)
-        self.tts_engine.runAndWait()
+            
+            print("AudioEngine: Lecture TTS en cours...")
+            engine.say(text)
+            engine.runAndWait()
+        finally:
+            try:
+                import pythoncom
+                pythoncom.CoUninitialize()
+            except Exception:
+                pass
