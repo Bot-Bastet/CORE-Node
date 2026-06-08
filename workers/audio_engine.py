@@ -236,11 +236,9 @@ class AudioEngine:
                     wav_file.setframerate(self.piper_voice.config.sample_rate)
                     self.piper_voice.synthesize(text, wav_file)
                     
-                with wave.open(wav_path_piper, 'rb') as w:
-                    frames = w.readframes(w.getnframes())
-                    audio = np.frombuffer(frames, dtype=np.int16)
-                    sd.play(audio, w.getframerate())
-                    sd.wait()
+                import winsound
+                print("AudioEngine: Lecture Piper en cours (via winsound)...")
+                winsound.PlaySound(wav_path_piper, winsound.SND_FILENAME)
                 return
             except Exception as e:
                 print(f"AudioEngine: Erreur avec Piper TTS ({e}). Fallback sur Windows TTS.")
@@ -264,8 +262,16 @@ class AudioEngine:
                 audio_array = audio_array.cpu().numpy().squeeze()
                 sample_rate = self.bark_model.generation_config.sample_rate
                 
-                sd.play(audio_array, sample_rate)
-                sd.wait()
+                # Sauvegarde en WAV puis lecture avec winsound pour garantir la sortie sur les enceintes
+                wav_path_bark = "bark_out.wav"
+                from scipy.io.wavfile import write
+                # Conversion float32 -> int16 pour winsound
+                audio_int16 = (audio_array * 32767).astype(np.int16)
+                write(wav_path_bark, sample_rate, audio_int16)
+                
+                import winsound
+                print("AudioEngine: Lecture Bark en cours (via winsound)...")
+                winsound.PlaySound(wav_path_bark, winsound.SND_FILENAME)
                 return
             except Exception as e:
                 print(f"AudioEngine: Erreur avec Bark TTS ({e}). Fallback sur Windows TTS.")
