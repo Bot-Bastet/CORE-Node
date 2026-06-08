@@ -246,10 +246,14 @@ class CoreNodeApp(ctk.CTk):
             self.llm_optionmenu.set("Aucun modèle")
 
     def on_stt_changed(self, choice):
-        self.add_log(f"⚙️ Configuration STT (Oreilles) modifiée : {choice}")
+        self.add_log(f"📥 Téléchargement/Chargement du modèle STT : {choice} en cours...")
+        def _done(actual_model):
+            self.add_log(f"✅ Modèle STT '{actual_model}' installé et prêt à l'emploi !")
+        if self.audio_engine:
+            threading.Thread(target=self.audio_engine.preload_stt_model, args=(choice, _done), daemon=True).start()
 
     def on_tts_changed(self, choice):
-        self.add_log(f"⚙️ Configuration TTS (Voix) modifiée : {choice}")
+        self.add_log(f"⚙️ Voix TTS changée pour : {choice} (Instantané via Windows)")
 
     def on_llm_selected(self, choice):
         if choice in ["Aucun modèle", "Chargement...", "Ollama injoignable", "Erreur API Ollama"]:

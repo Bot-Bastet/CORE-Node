@@ -129,11 +129,8 @@ class AudioEngine:
         print(f"AudioEngine: Enregistrement sauvegardé dans {wav_path} (Volume max: {volume:.4f}).")
         return wav_path
 
-    def process_stt(self, wav_path: str, model_name: str = "base") -> str:
-        """Convertit le fichier wav en texte avec Whisper."""
-        if not os.path.exists(wav_path):
-            return ""
-            
+    def preload_stt_model(self, model_name: str, callback_done=None):
+        """Précharge le modèle Whisper en arrière-plan pour éviter les blocages."""
         if "Tiny" in model_name:
             actual_model = "tiny"
         elif "Small" in model_name:
@@ -143,13 +140,11 @@ class AudioEngine:
         else:
             actual_model = "base"
             
-        # Chargement tardif ou rechargement si le modèle change
         if self.whisper_model is None or self.current_whisper_model != actual_model:
-            print(f"AudioEngine: Chargement de Faster-Whisper '{actual_model}' (Patientez lors du premier telechargement)...")
+            print(f"AudioEngine: Pré-chargement de Faster-Whisper '{actual_model}'...")
             from faster_whisper import WhisperModel
             
             try:
-                # ctranslate2 embarque ses propres libs CUDA (indépendant de PyTorch)
                 self.whisper_model = WhisperModel(actual_model, device="cuda", compute_type="float16")
                 print("AudioEngine: Whisper charge sur GPU (CUDA) avec succes.")
             except Exception as e:
@@ -157,6 +152,16 @@ class AudioEngine:
                 self.whisper_model = WhisperModel(actual_model, device="cpu", compute_type="int8")
                 
             self.current_whisper_model = actual_model
+            if callback_done:
+                callback_done(actual_model)
+
+    def process_stt(self, wav_path: str, model_name: str = "base") -> str:
+        """Convertit le fichier wav en texte avec Whisper."""
+        if not os.path.exists(wav_path):
+            return ""
+            
+        # On précharge le modèle même si l'utilisateur ne parle pas encore
+        self.preload_stt_model(model_name)
             
         print("AudioEngine: Transcription en cours...")
         segments, info = self.whisper_model.transcribe(wav_path, language="fr")
