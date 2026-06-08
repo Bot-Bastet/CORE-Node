@@ -29,6 +29,6 @@ C'est ici que l'intelligence de ton interface prend tout son sens pour gérer la
 
 ### Étape 5 : Exécution et Inférence
 - [x] Câbler la réception du flux audio (ou l'enregistrement local) et l'inférence locale.
-- [x] Faire tourner la pipeline (Audio->STT Whisper->Texte->LLM Ollama->Texte->TTS pyttsx3->Audio) en test local.
+- [x] Faire tourner la pipeline (Audio->STT Whisper->Texte->LLM Ollama->Texte->TTS Piper/Bark->Audio) avec accélération GPU complète.
 - [ ] Câbler tout ça sur les messages entrants du Gateway.
 - [ ] Renvoyer le flux audio final généré vers le Gateway pour qu'il le transmette au haut-parleur du robot.
