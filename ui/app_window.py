@@ -252,9 +252,13 @@ class CoreNodeApp(ctk.CTk):
                 r = requests.post("http://localhost:11434/api/show", json={"name": choice}, timeout=2)
                 if r.status_code == 200:
                     info = r.json().get("details", {})
-                    families = info.get("families", [])
-                    # On cherche "audio" dans le nom ou les familles pour activer la case
-                    if "audio" in choice.lower() or any("audio" in f.lower() for f in families):
+                    families = info.get("families", []) or []
+                    # On cherche "audio" ou des modèles connus (ex: gemma4)
+                    is_audio_model = "audio" in choice.lower() or "gemma4" in choice.lower()
+                    if not is_audio_model and families:
+                        is_audio_model = any("audio" in f.lower() for f in families)
+                        
+                    if is_audio_model:
                         self.after(0, lambda: self.llm_native_audio_checkbox.grid(row=2, column=0, columnspan=2, sticky="w", padx=5, pady=5))
                     else:
                         self.after(0, self.llm_native_audio_checkbox.grid_forget)
@@ -396,6 +400,8 @@ class CoreNodeApp(ctk.CTk):
             elif feature == "audio":
                 self.audio_var.set(state)
                 self.audio_checkbox.configure(state="normal", text="Prendre en charge STT / TTS")
+                if self.audio_engine:
+                    self.audio_engine.enable_continuous_listening(state, self.process_audio_pipeline)
 
     def toggle_recording(self):
         if not self.audio_engine:

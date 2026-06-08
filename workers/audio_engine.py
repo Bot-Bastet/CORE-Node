@@ -11,8 +11,69 @@ class AudioEngine:
         self.tts_enabled = False
         self.whisper_model = None
         self.is_recording = False
+        self.continuous_running = False
         self.audio_data = []
         self.sample_rate = 16000
+
+    def enable_continuous_listening(self, state: bool, callback_pipeline=None):
+        self.continuous_running = state
+        if state and callback_pipeline:
+            import threading
+            threading.Thread(target=self._continuous_listen_worker, args=(callback_pipeline,), daemon=True).start()
+
+    def _continuous_listen_worker(self, callback_pipeline):
+        import time
+        import sounddevice as sd
+        import numpy as np
+        from scipy.io.wavfile import write
+        
+        print("AudioEngine: Écoute continue automatique (VAD) activée.")
+        while self.continuous_running:
+            audio_data = []
+            
+            def callback(indata, frames, time_info, status):
+                audio_data.append(indata.copy())
+                
+            stream = sd.InputStream(samplerate=self.sample_rate, channels=1, callback=callback)
+            stream.start()
+            
+            is_speaking = False
+            silence_chunks = 0
+            
+            while self.continuous_running:
+                time.sleep(0.1)
+                if not audio_data: continue
+                
+                latest_chunk = audio_data[-1]
+                volume = np.max(np.abs(latest_chunk))
+                
+                if volume > 0.03: # Seuil de détection vocale
+                    if not is_speaking:
+                        print(f"AudioEngine: Début de parole détecté (vol: {volume:.3f})")
+                    is_speaking = True
+                    silence_chunks = 0
+                elif is_speaking:
+                    silence_chunks += 1
+                    
+                if is_speaking and silence_chunks > 15: # 1.5s de silence
+                    break
+                    
+            stream.stop()
+            stream.close()
+            
+            if is_speaking and self.continuous_running:
+                audio_concat = np.concatenate(audio_data, axis=0)
+                if len(audio_concat) > self.sample_rate * 0.5: # Au moins 0.5s d'audio
+                    print("AudioEngine: Fin de parole. Envoi au pipeline bloquant...")
+                    wav_path = "temp_continuous.wav"
+                    audio_int16 = (audio_concat * 32767).astype(np.int16)
+                    write(wav_path, self.sample_rate, audio_int16)
+                    
+                    # Bloque l'écoute pendant la réflexion et la réponse TTS !
+                    callback_pipeline(wav_path)
+                    
+                    # Petite pause après avoir parlé avant de réécouter
+                    time.sleep(0.5)
 
     def start_recording(self):
         """Démarre l'enregistrement audio depuis le microphone par défaut."""
