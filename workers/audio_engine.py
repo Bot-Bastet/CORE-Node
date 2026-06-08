@@ -10,6 +10,7 @@ class AudioEngine:
         self.stt_enabled = False
         self.tts_enabled = False
         self.whisper_model = None
+        self.current_whisper_model = None
         self.is_recording = False
         self.continuous_running = False
         self.audio_data = []
@@ -111,14 +112,23 @@ class AudioEngine:
         print(f"AudioEngine: Enregistrement sauvegardé dans {wav_path} (Volume max: {volume:.4f}).")
         return wav_path
 
-    def process_stt(self, wav_path: str) -> str:
+    def process_stt(self, wav_path: str, model_name: str = "base") -> str:
         """Convertit le fichier wav en texte avec Whisper."""
         if not os.path.exists(wav_path):
             return ""
             
-        # Chargement tardif pour éviter de geler l'app au démarrage
-        if self.whisper_model is None:
-            print("AudioEngine: Chargement de Faster-Whisper 'base'...")
+        if "Tiny" in model_name:
+            actual_model = "tiny"
+        elif "Small" in model_name:
+            actual_model = "small"
+        elif "Medium" in model_name:
+            actual_model = "medium"
+        else:
+            actual_model = "base"
+            
+        # Chargement tardif ou rechargement si le modèle change
+        if self.whisper_model is None or self.current_whisper_model != actual_model:
+            print(f"AudioEngine: Chargement de Faster-Whisper '{actual_model}'...")
             import torch
             from faster_whisper import WhisperModel
             
@@ -128,7 +138,8 @@ class AudioEngine:
             if device == "cpu":
                 print("ATTENTION: CUDA non detecte. Le STT tournera sur le CPU (LENT).")
             
-            self.whisper_model = WhisperModel("base", device=device, compute_type=compute_type)
+            self.whisper_model = WhisperModel(actual_model, device=device, compute_type=compute_type)
+            self.current_whisper_model = actual_model
             
         print("AudioEngine: Transcription en cours (GPU)...")
         segments, info = self.whisper_model.transcribe(wav_path, language="fr")
@@ -137,10 +148,13 @@ class AudioEngine:
         print("AudioEngine: STT termine.")
         return texte
 
-    def process_tts(self, text: str):
+    def process_tts(self, text: str, voice_pref: str = "Voice 1"):
         """Génère l'audio avec pyttsx3 de manière sécurisée pour les threads."""
         if not text:
             return
+            
+        if "Piper" in voice_pref or "Bark" in voice_pref:
+            print(f"AudioEngine: {voice_pref} non encore intégré. Fallback sur la voix Windows standard.")
             
         # Initialisation COM pour Windows dans un thread secondaire
         try:
@@ -150,14 +164,18 @@ class AudioEngine:
             pass
 
         try:
+            import pyttsx3
             engine = pyttsx3.init()
             voices = engine.getProperty('voices')
-            for voice in voices:
-                if 'fr' in voice.languages or 'French' in voice.name:
-                    engine.setProperty('voice', voice.id)
-                    break
+            fr_voices = [v for v in voices if 'fr' in v.languages or 'French' in v.name]
             
-            print("AudioEngine: Lecture TTS en cours...")
+            if fr_voices:
+                selected_voice = fr_voices[0].id
+                if "Voice 2" in voice_pref and len(fr_voices) > 1:
+                    selected_voice = fr_voices[1].id
+                engine.setProperty('voice', selected_voice)
+            
+            print(f"AudioEngine: Lecture TTS en cours ({voice_pref})...")
             engine.say(text)
             engine.runAndWait()
         finally:

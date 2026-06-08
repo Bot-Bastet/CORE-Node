@@ -426,7 +426,8 @@ class CoreNodeApp(ctk.CTk):
                 self.add_gateway_log(f"👤 Humain :\n[Fichier Audio Brut]")
                 texte_transcrit = "[AUDIO]" # Marqueur pour le LLM
             else:
-                texte_transcrit = self.audio_engine.process_stt(wav_path)
+                stt_choice = self.stt_optionmenu.get()
+                texte_transcrit = self.audio_engine.process_stt(wav_path, stt_choice)
                 self.after(0, lambda t=texte_transcrit: self.transcript_label.configure(text=f"Vous : {t}"))
                 self.add_gateway_log(f"👤 Humain :\n\"{texte_transcrit}\"")
                 
@@ -452,7 +453,8 @@ class CoreNodeApp(ctk.CTk):
 
             # 3. TTS
             self.after(0, lambda: self.record_btn.configure(text="🔊 Lecture Audio..."))
-            self.audio_engine.process_tts(reponse)
+            tts_choice = self.tts_optionmenu.get()
+            self.audio_engine.process_tts(reponse, tts_choice)
             self.add_gateway_log("🔊 Audio TTS généré et transmis au haut-parleur.")
             
         except Exception as e:
