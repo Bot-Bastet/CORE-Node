@@ -7,10 +7,16 @@ import numpy as np
 
 class AudioEngine:
     def __init__(self):
-        self.stt_enabled = False
-        self.tts_enabled = False
+        self.sample_rate = 16000
+        self.is_recording = False
+        self.continuous_running = False
+        self.stream = None
+        self.audio_data = []
         self.whisper_model = None
         self.current_whisper_model = None
+        self.piper_voice = None
+        self.bark_model = None
+        self.bark_processor = None
         self.is_recording = False
         self.continuous_running = False
         self.audio_data = []
@@ -170,14 +176,102 @@ class AudioEngine:
         print("AudioEngine: STT termine.")
         return texte
 
+    def preload_piper_model(self, callback_done=None):
+        import os
+        import urllib.request
+        from piper import PiperVoice
+        
+        model_path = "fr_FR-siwis-low.onnx"
+        config_path = "fr_FR-siwis-low.onnx.json"
+        if not os.path.exists(model_path):
+            print("AudioEngine: Téléchargement de Piper TTS (15 Mo)...")
+            urllib.request.urlretrieve("https://huggingface.co/rhasspy/piper-voices/resolve/main/fr/fr_FR/siwis/low/fr_FR-siwis-low.onnx", model_path)
+            urllib.request.urlretrieve("https://huggingface.co/rhasspy/piper-voices/resolve/main/fr/fr_FR/siwis/low/fr_FR-siwis-low.onnx.json", config_path)
+            
+        if self.piper_voice is None:
+            print("AudioEngine: Chargement en mémoire du modèle Piper...")
+            self.piper_voice = PiperVoice.load(model_path)
+            
+        if callback_done:
+            callback_done()
+
+    def preload_bark_model(self, callback_done=None):
+        if self.bark_model is None:
+            print("AudioEngine: Téléchargement/Chargement de Bark en cours (Patientez, fichiers lourds)...")
+            from transformers import AutoProcessor, BarkModel
+            import torch
+            
+            device = "cuda" if torch.cuda.is_available() else "cpu"
+            self.bark_processor = AutoProcessor.from_pretrained("suno/bark-small")
+            # En float16 sur CUDA pour économiser la VRAM (Bark est très lourd)
+            dtype = torch.float16 if device == "cuda" else torch.float32
+            self.bark_model = BarkModel.from_pretrained("suno/bark-small", torch_dtype=dtype).to(device)
+            print("AudioEngine: Bark TTS est prêt !")
+            
+        if callback_done:
+            callback_done()
+
     def process_tts(self, text: str, voice_pref: str = "Voice 1"):
         """Génère l'audio avec pyttsx3 de manière sécurisée pour les threads."""
         if not text:
             return
             
-        if "Piper" in voice_pref or "Bark" in voice_pref:
-            print(f"AudioEngine: {voice_pref} non encore intégré. Fallback sur la voix Windows standard.")
+        if "Piper" in voice_pref:
+            print("AudioEngine: Utilisation de Piper TTS...")
+            try:
+                import io
+                import wave
+                import numpy as np
+                import urllib.request
+                import sounddevice as sd
+                from piper import PiperVoice
+                
+                self.preload_piper_model()
+                    
+                print("AudioEngine: Synthèse Piper en cours...")
+                wav_path_piper = "piper_out.wav"
+                with wave.open(wav_path_piper, 'wb') as wav_file:
+                    wav_file.setnchannels(1)
+                    wav_file.setsampwidth(2)
+                    wav_file.setframerate(self.piper_voice.config.sample_rate)
+                    self.piper_voice.synthesize(text, wav_file)
+                    
+                with wave.open(wav_path_piper, 'rb') as w:
+                    frames = w.readframes(w.getnframes())
+                    audio = np.frombuffer(frames, dtype=np.int16)
+                    sd.play(audio, w.getframerate())
+                    sd.wait()
+                return
+            except Exception as e:
+                print(f"AudioEngine: Erreur avec Piper TTS ({e}). Fallback sur Windows TTS.")
+
+        if "Bark" in voice_pref:
+            print("AudioEngine: Utilisation de Bark TTS...")
+            try:
+                import torch
+                import numpy as np
+                import sounddevice as sd
+                
+                self.preload_bark_model()
+                
+                device = "cuda" if torch.cuda.is_available() else "cpu"
+                print("AudioEngine: Synthèse Bark en cours...")
+                inputs = self.bark_processor(text, voice_preset="v2/fr_speaker_1").to(device)
+                
+                with torch.no_grad():
+                    audio_array = self.bark_model.generate(**inputs)
+                    
+                audio_array = audio_array.cpu().numpy().squeeze()
+                sample_rate = self.bark_model.generation_config.sample_rate
+                
+                sd.play(audio_array, sample_rate)
+                sd.wait()
+                return
+            except Exception as e:
+                print(f"AudioEngine: Erreur avec Bark TTS ({e}). Fallback sur Windows TTS.")
             
+        import pyttsx3
+        engine = pyttsx3.init()
         # Initialisation COM pour Windows dans un thread secondaire
         try:
             import pythoncom

@@ -129,7 +129,7 @@ class CoreNodeApp(ctk.CTk):
 
         self.tts_label = ctk.CTkLabel(self.audio_models_frame, text="Modèle TTS :")
         self.tts_label.grid(row=1, column=0, sticky="w", padx=5, pady=5)
-        self.tts_optionmenu = ctk.CTkOptionMenu(self.audio_models_frame, values=["Voice 1 (Rapide)", "Voice 2 (Lourd/HD)", "[À VENIR] Piper TTS", "[À VENIR] Bark"], command=self.on_tts_changed)
+        self.tts_optionmenu = ctk.CTkOptionMenu(self.audio_models_frame, values=["Voice 1 (Rapide)", "Voice 2 (Lourd/HD)", "Piper TTS (Moyen)", "Bark (Très Lourd)"], command=self.on_tts_changed)
         self.tts_optionmenu.grid(row=1, column=1, sticky="w", padx=5, pady=5)
         
         self.llm_native_audio_var = ctk.BooleanVar(value=False)
@@ -253,8 +253,18 @@ class CoreNodeApp(ctk.CTk):
             threading.Thread(target=self.audio_engine.preload_stt_model, args=(choice, _done), daemon=True).start()
 
     def on_tts_changed(self, choice):
-        if "À VENIR" in choice or "Piper" in choice or "Bark" in choice:
-            self.add_log(f"⚠️ {choice} n'est pas encore programmé ! La voix de secours Windows sera utilisée.")
+        if "Bark" in choice:
+            self.add_log(f"📥 Téléchargement/Chargement de {choice} en cours (Plusieurs Go)...")
+            def _done():
+                self.add_log(f"✅ Voix Bark installée et prête à l'emploi !")
+            if self.audio_engine:
+                threading.Thread(target=self.audio_engine.preload_bark_model, args=(_done,), daemon=True).start()
+        elif "Piper" in choice:
+            self.add_log(f"📥 Téléchargement/Chargement de {choice} en cours (15 Mo)...")
+            def _done():
+                self.add_log(f"✅ Voix Piper installée et prête à l'emploi !")
+            if self.audio_engine:
+                threading.Thread(target=self.audio_engine.preload_piper_model, args=(_done,), daemon=True).start()
         else:
             self.add_log(f"⚙️ Voix TTS changée pour : {choice} (Instantané via Windows)")
 
