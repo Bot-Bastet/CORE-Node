@@ -53,7 +53,7 @@ class CoreNodeApp(ctk.CTk):
         self.vision_engine = vision_engine
 
         self.title("Bastet CORE-Node")
-        self.geometry("800x750")
+        self.geometry("1100x750")
 
         self.gateway_url = "ws://127.0.0.1:8001/ws/node"
         self.gateway_token = "your-api-token-here"
@@ -62,8 +62,8 @@ class CoreNodeApp(ctk.CTk):
         self.gateway_client = None
 
         # Layout configuration
-        self.grid_columnconfigure(1, weight=3) # Main frame
-        self.grid_columnconfigure(2, weight=2) # Right sidebar (Gateway logs)
+        self.grid_columnconfigure(1, weight=1) # Main frame s'étend
+        self.grid_columnconfigure(2, weight=0) # Right sidebar (taille fixe)
         self.grid_rowconfigure(0, weight=1)
 
         # ─── Sidebar (Menu) ───
@@ -179,18 +179,24 @@ class CoreNodeApp(ctk.CTk):
         self.install_btn = ctk.CTkButton(self.install_frame, text="⬇ Installer", width=100, command=self.install_model)
         self.install_btn.pack(side="left")
         
+        self.install_progressbar = ctk.CTkProgressBar(self.install_frame, width=150)
+        self.install_progressbar.pack(side="left", padx=10)
+        self.install_progressbar.set(0)
+        self.install_progressbar.pack_forget() # Masqué par défaut
+        
         self.install_status = ctk.CTkLabel(self.install_frame, text="", text_color="yellow")
-        self.install_status.pack(side="left", padx=10)
+        self.install_status.pack(side="left", padx=5)
 
         # ─── Right Sidebar (Gateway Logs & Chat) ───
-        self.right_sidebar = ctk.CTkFrame(self, width=250, corner_radius=0)
+        self.right_sidebar = ctk.CTkFrame(self, width=350, corner_radius=0)
         self.right_sidebar.grid(row=0, column=2, sticky="nsew")
         self.right_sidebar.grid_rowconfigure(1, weight=1)
+        self.right_sidebar.grid_columnconfigure(0, weight=1)
         
         self.gateway_logs_title = ctk.CTkLabel(self.right_sidebar, text="🌐 Gateway & Contexte", font=ctk.CTkFont(size=14, weight="bold"))
         self.gateway_logs_title.grid(row=0, column=0, padx=20, pady=(20, 10))
         
-        self.gateway_log_box = ctk.CTkTextbox(self.right_sidebar, width=250, font=ctk.CTkFont(size=11), fg_color="#12121a", text_color="#e2e8f0")
+        self.gateway_log_box = ctk.CTkTextbox(self.right_sidebar, font=ctk.CTkFont(size=11), fg_color="#12121a", text_color="#e2e8f0")
         self.gateway_log_box.grid(row=1, column=0, padx=10, pady=(0, 20), sticky="nsew")
         self.gateway_log_box.configure(state="disabled")
 
@@ -230,25 +236,45 @@ class CoreNodeApp(ctk.CTk):
             self.llm_optionmenu.configure(values=["Aucun modèle"])
             self.llm_optionmenu.set("Aucun modèle")
 
+    def update_install_progress(self, pct, status):
+        if pct is not None:
+            self.install_progressbar.set(pct / 100.0)
+            self.install_status.configure(text=f"{status} ({pct}%)")
+        else:
+            self.install_status.configure(text=status)
+
     def install_model(self):
         model_name = self.install_entry.get().strip()
         if not model_name:
             return
         self.install_btn.configure(state="disabled", text="Installation...")
-        self.install_status.configure(text=f"Téléchargement de {model_name}...")
+        self.install_status.configure(text=f"Connexion...")
+        self.install_progressbar.pack(side="left", padx=10, before=self.install_status)
+        self.install_progressbar.set(0)
         
         def _pull():
+            import json
             try:
-                requests.post("http://localhost:11434/api/pull", json={"name": model_name}, timeout=600)
-                self.install_status.configure(text="✅ Terminé", text_color="green")
+                r = requests.post("http://localhost:11434/api/pull", json={"name": model_name}, stream=True, timeout=600)
+                for line in r.iter_lines():
+                    if line:
+                        data = json.loads(line)
+                        status = data.get("status", "")
+                        if "total" in data and "completed" in data and data["total"] > 0:
+                            pct = int(data["completed"] / data["total"] * 100)
+                            self.after(0, lambda p=pct, s=status: self.update_install_progress(p, s))
+                        else:
+                            self.after(0, lambda s=status: self.update_install_progress(None, s))
+                self.after(0, lambda: self.install_status.configure(text="✅ Terminé", text_color="green"))
             except Exception as e:
-                self.install_status.configure(text="❌ Erreur", text_color="red")
+                self.after(0, lambda err=e: self.install_status.configure(text=f"❌ Erreur: {err}", text_color="red"))
             finally:
-                self.install_btn.configure(state="normal", text="⬇ Installer")
-                self.install_entry.delete(0, 'end')
-                self.fetch_ollama_models()
+                self.after(0, lambda: self.install_progressbar.pack_forget())
+                self.after(0, lambda: self.install_btn.configure(state="normal", text="⬇ Installer"))
+                self.after(0, lambda: self.install_entry.delete(0, 'end'))
+                self.after(0, self.fetch_ollama_models)
 
-        threading.Thread(target=_pull).start()
+        threading.Thread(target=_pull, daemon=True).start()
 
     def toggle_model(self):
         if self.model_running:
