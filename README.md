@@ -17,21 +17,15 @@ C'est ici que l'intelligence de ton interface prend tout son sens pour gérer la
 
 ### Étape 2 : Le Module de Vision Déportée
 - [x] Cases à cocher YOLO et Reconnaissance Faciale avec protocole d'état asynchrone.
-- [ ] Récupération du flux RTSP, inférence via OpenCV/modèles locaux, et renvoi des résultats au Gateway.
+- [x] Récupération du flux local/RTSP, inférence via OpenCV/modèles locaux (YOLOv8 + reco faciale), et affichage des logs de détection.
 
 ### Étape 3 : Le Module LLM et Analyse des Modèles
-- [x] Système de téléchargement et d'exécution à la volée de modèles LLM locaux via l'API Ollama.
-- [ ] Nouveau : Mettre en place un analyseur de métadonnées du modèle sélectionné pour détecter s'il est "Multimodal" (capable de gérer l'audio nativement) ou "Texte uniquement".
+- [x] Système de téléchargement et d'exécution à la volée de modèles LLM locaux via l'API Ollama (avec barre de progression).
+- [x] Analyseur de métadonnées du modèle sélectionné pour détecter s'il est "Multimodal" (ex: gemma4 ou tags audio).
 
 ### Étape 4 : Le Module Audio Déporté (L'Interface Dynamique)
-- [x] Ajouter la case à cocher principale : "Prendre en charge STT / TTS" avec protocole asynchrone.
-- [ ] Logique de l'UI selon le modèle LLM choisi :
-  - **Scénario A (Modèle Multimodal sélectionné)** :
-    Afficher/Dégriser la sous-case : "Je préfère utiliser STT et TTS classiques".
-    - Si cette sous-case est décochée : Le flux audio brut du micro du robot part directement dans le LLM, et l'audio généré repart au robot. Les menus de choix des modèles STT et TTS classiques sont grisés.
-    - Si cette sous-case est cochée : Le flux audio passe par le modèle STT classique, donne du texte au LLM, qui donne du texte au modèle TTS classique. Les menus STT et TTS redeviennent accessibles.
-  - **Scénario B (Modèle Texte uniquement sélectionné)** :
-    La sous-case "Je préfère utiliser STT et TTS classiques" est grisée/désactivée. L'utilisation du STT/TTS classique est forcée. Les menus de choix des modèles STT et TTS classiques sont obligatoirement accessibles.
+- [x] Ajouter la case à cocher principale : "Prendre en charge STT / TTS" (lance l'écoute automatique VAD).
+- [x] Logique de l'UI dynamique selon le modèle LLM choisi : Apparition de la case "Audio Natif" permettant l'encodage audio direct en Base64 vers Ollama en bypassant Whisper.
 
 ### Étape 5 : Exécution et Inférence
 - [x] Câbler la réception du flux audio (ou l'enregistrement local) et l'inférence locale.
