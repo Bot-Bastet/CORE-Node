@@ -72,6 +72,13 @@ class AudioEngine:
                     
                     if len(audio_concat) > self.sample_rate * 0.5:
                         print("AudioEngine: Fin de parole. Envoi au pipeline bloquant...")
+                        
+                        # Normalisation du volume pour aider Whisper (boost du son)
+                        max_vol = np.max(np.abs(audio_concat))
+                        if max_vol > 0:
+                            # On booste le volume à 90% du max pour éviter toute saturation
+                            audio_concat = (audio_concat / max_vol) * 0.9
+                            
                         wav_path = "temp_continuous.wav"
                         audio_int16 = (audio_concat * 32767).astype(np.int16)
                         write(wav_path, self.sample_rate, audio_int16)
