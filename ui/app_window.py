@@ -442,7 +442,10 @@ class CoreNodeApp(ctk.CTk):
             else:
                 self.llm_engine.load_model(model)
                 self.add_gateway_log("🧠 LLM : Génération de la réponse en cours avec le contexte visuel/MyGES...")
-                reponse = self.llm_engine.generate_response(texte_transcrit)
+                if self.llm_native_audio_var.get():
+                    reponse = self.llm_engine.generate_response(texte_transcrit, audio_path=wav_path)
+                else:
+                    reponse = self.llm_engine.generate_response(texte_transcrit)
             
             self.after(0, lambda r=reponse: self.response_label.configure(text=f"Robot : {r}"))
             self.add_gateway_log(f"🤖 Bastet :\n\"{reponse}\"")
