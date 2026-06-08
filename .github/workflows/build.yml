@@ -1,0 +1,36 @@
+name: Build Windows Release
+
+on:
+  push:
+    branches: [ "master", "main" ]
+  workflow_dispatch:
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.10'
+        
+    - name: Install Build Tools (CMake for dlib)
+      run: pip install cmake
+        
+    - name: Install Dependencies
+      run: |
+        pip install -r requirements.txt
+        pip install pyinstaller
+        
+    - name: Build with PyInstaller
+      run: |
+        pyinstaller --noconfirm --onedir --windowed --collect-all customtkinter --collect-all ultralytics --name "CORE-Node" main.py
+        
+    - name: Upload Build Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: CORE-Node-Release
+        path: dist/CORE-Node/
