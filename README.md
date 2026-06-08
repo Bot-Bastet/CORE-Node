@@ -18,6 +18,7 @@ C'est ici que l'intelligence de ton interface prend tout son sens pour gérer la
 ### Étape 2 : Le Module de Vision Déportée
 - [x] Cases à cocher YOLO et Reconnaissance Faciale avec protocole d'état asynchrone.
 - [x] Récupération du flux local/RTSP, inférence via OpenCV/modèles locaux (YOLOv8 + reco faciale), et affichage des logs de détection.
+- [ ] Sélection dynamique du modèle YOLO (n, s, m, l, x) depuis l'interface et accélération matérielle GPU (CUDA/TensorRT).
 
 ### Étape 3 : Le Module LLM et Analyse des Modèles
 - [x] Système de téléchargement et d'exécution à la volée de modèles LLM locaux via l'API Ollama (avec barre de progression).
