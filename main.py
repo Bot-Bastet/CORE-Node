@@ -3,14 +3,21 @@ import threading
 import customtkinter as ctk
 from ui.app_window import CoreNodeApp
 from network.gateway_client import GatewayClient
+from workers.audio_engine import AudioEngine
+from workers.llm_engine import LLMEngine
+from workers.vision_engine import VisionEngine
 
 def run_asyncio_loop(loop):
     asyncio.set_event_loop(loop)
     loop.run_forever()
 
 if __name__ == "__main__":
+    audio_engine = AudioEngine()
+    llm_engine = LLMEngine()
+    vision_engine = VisionEngine()
+
     # Initialisation de l'UI
-    app = CoreNodeApp()
+    app = CoreNodeApp(audio_engine, llm_engine, vision_engine)
     
     # Création du client réseau
     # L'IP et le Token pourront être récupérés depuis l'UI ou un config file plus tard

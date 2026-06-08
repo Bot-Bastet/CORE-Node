@@ -46,8 +46,11 @@ class SettingsWindow(ctk.CTkToplevel):
         self.destroy()
 
 class CoreNodeApp(ctk.CTk):
-    def __init__(self):
+    def __init__(self, audio_engine=None, llm_engine=None, vision_engine=None):
         super().__init__()
+        self.audio_engine = audio_engine
+        self.llm_engine = llm_engine
+        self.vision_engine = vision_engine
 
         self.title("Bastet CORE-Node")
         self.geometry("800x750")
@@ -96,8 +99,11 @@ class CoreNodeApp(ctk.CTk):
         
         self.yolo_var = ctk.BooleanVar(value=False)
         self.yolo_checkbox = ctk.CTkCheckBox(self.main_frame, text="Activer YOLOv8 (Détection d'objets)", variable=self.yolo_var, 
-            command=lambda: self.on_feature_toggle("yolo", self.yolo_checkbox, "Activer YOLOv8 (Détection d'objets)", self.yolo_var))
+            command=lambda: self.on_feature_toggle("yolo", self.yolo_checkbox, "Activer YOLOv8", self.yolo_var))
         self.yolo_checkbox.grid(row=1, column=0, sticky="w", pady=5)
+        
+        self.yolo_optionmenu = ctk.CTkOptionMenu(self.main_frame, values=["yolov8n.pt", "yolov8s.pt", "yolov8m.pt"])
+        self.yolo_optionmenu.grid(row=1, column=0, sticky="w", padx=(250, 0))
         
         self.face_var = ctk.BooleanVar(value=False)
         self.face_checkbox = ctk.CTkCheckBox(self.main_frame, text="Activer Reconnaissance Faciale", variable=self.face_var,
@@ -124,12 +130,28 @@ class CoreNodeApp(ctk.CTk):
         self.tts_optionmenu = ctk.CTkOptionMenu(self.audio_models_frame, values=["Voice 1 (Rapide)", "Voice 2 (Lourd/HD)", "Piper TTS (Moyen)", "Bark (Très Lourd)"])
         self.tts_optionmenu.grid(row=1, column=1, sticky="w", padx=5, pady=5)
 
+        # Sous-section Test Vocal Local
+        self.test_audio_frame = ctk.CTkFrame(self.main_frame, border_width=1, border_color="#2d2d3d")
+        self.test_audio_frame.grid(row=6, column=0, sticky="ew", pady=(15, 5))
+        
+        self.test_title = ctk.CTkLabel(self.test_audio_frame, text="🧪 Test Pipeline Vocale Locale", font=ctk.CTkFont(weight="bold"))
+        self.test_title.pack(pady=(10, 5))
+
+        self.record_btn = ctk.CTkButton(self.test_audio_frame, text="🎙️ Lancer l'Enregistrement", command=self.toggle_recording, fg_color="#3b82f6", hover_color="#2563eb")
+        self.record_btn.pack(pady=5)
+
+        self.transcript_label = ctk.CTkLabel(self.test_audio_frame, text="Vous : ...", text_color="#94a3b8")
+        self.transcript_label.pack(pady=(5, 0))
+        
+        self.response_label = ctk.CTkLabel(self.test_audio_frame, text="Robot : ...", text_color="#4ade80", wraplength=400)
+        self.response_label.pack(pady=(5, 10), padx=10)
+
         # Section LLM (Ollama)
         self.llm_label = ctk.CTkLabel(self.main_frame, text="Modèle LLM (100% Local via Ollama)", font=ctk.CTkFont(size=16, weight="bold"))
-        self.llm_label.grid(row=6, column=0, sticky="w", pady=(20, 10))
+        self.llm_label.grid(row=7, column=0, sticky="w", pady=(20, 10))
         
         self.llm_frame = ctk.CTkFrame(self.main_frame, fg_color="transparent")
-        self.llm_frame.grid(row=7, column=0, sticky="ew")
+        self.llm_frame.grid(row=8, column=0, sticky="ew")
 
         self.llm_optionmenu = ctk.CTkOptionMenu(self.llm_frame, values=["Chargement..."], width=200)
         self.llm_optionmenu.pack(side="left", padx=(0, 10))
@@ -141,14 +163,14 @@ class CoreNodeApp(ctk.CTk):
         self.toggle_model_btn.pack(side="left")
 
         self.model_status_label = ctk.CTkLabel(self.main_frame, text="Statut : Aucun modèle démarré", text_color="gray")
-        self.model_status_label.grid(row=8, column=0, sticky="w", pady=(5, 15))
+        self.model_status_label.grid(row=9, column=0, sticky="w", pady=(5, 15))
 
         # Installer un nouveau modèle
         self.install_label = ctk.CTkLabel(self.main_frame, text="Installer un nouveau modèle (ex: mistral:latest) :", font=ctk.CTkFont(size=12))
-        self.install_label.grid(row=9, column=0, sticky="w")
+        self.install_label.grid(row=10, column=0, sticky="w")
 
         self.install_frame = ctk.CTkFrame(self.main_frame, fg_color="transparent")
-        self.install_frame.grid(row=10, column=0, sticky="ew", pady=5)
+        self.install_frame.grid(row=11, column=0, sticky="ew", pady=5)
 
         self.install_entry = ctk.CTkEntry(self.install_frame, placeholder_text="hermes:latest", width=250)
         self.install_entry.pack(side="left", padx=(0, 10))
@@ -159,7 +181,15 @@ class CoreNodeApp(ctk.CTk):
         self.install_status = ctk.CTkLabel(self.install_frame, text="", text_color="yellow")
         self.install_status.pack(side="left", padx=10)
 
-        self.fetch_ollama_models()
+        self.after(100, self.fetch_ollama_models)
+        self.check_cuda()
+
+    def check_cuda(self):
+        import torch
+        if torch.cuda.is_available():
+            self.add_log("⚡ Accélération matérielle NVIDIA (CUDA) détectée et active !")
+        else:
+            self.add_log("❌ CUDA non détecté. L'IA tournera sur le CPU (Lent). Vérifiez votre installation PyTorch.")
 
     def fetch_ollama_models(self):
         def _fetch():
@@ -167,17 +197,25 @@ class CoreNodeApp(ctk.CTk):
                 r = requests.get("http://localhost:11434/api/tags", timeout=2)
                 if r.status_code == 200:
                     models = [m["name"] for m in r.json().get("models", [])]
-                    if models:
-                        self.llm_optionmenu.configure(values=models)
-                        self.llm_optionmenu.set(models[0])
-                    else:
-                        self.llm_optionmenu.configure(values=["Aucun modèle"])
-                        self.llm_optionmenu.set("Aucun modèle")
+                    self.after(0, lambda: self._update_ollama_ui(models))
                 else:
-                    self.llm_optionmenu.configure(values=["Erreur API Ollama"])
+                    self.after(0, lambda: self._update_ollama_ui(None, "Erreur API Ollama"))
             except Exception:
-                self.llm_optionmenu.configure(values=["Ollama injoignable"])
-        threading.Thread(target=_fetch).start()
+                self.after(0, lambda: self._update_ollama_ui(None, "Ollama injoignable"))
+        threading.Thread(target=_fetch, daemon=True).start()
+
+    def _update_ollama_ui(self, models, error=None):
+        if error:
+            self.llm_optionmenu.configure(values=[error])
+            return
+        if models:
+            self.llm_optionmenu.configure(values=models)
+            current_selection = self.llm_optionmenu.get()
+            if current_selection not in models:
+                self.llm_optionmenu.set(models[0])
+        else:
+            self.llm_optionmenu.configure(values=["Aucun modèle"])
+            self.llm_optionmenu.set("Aucun modèle")
 
     def install_model(self):
         model_name = self.install_entry.get().strip()
@@ -269,10 +307,60 @@ class CoreNodeApp(ctk.CTk):
             
             if feature == "yolo":
                 self.yolo_var.set(state)
-                self.yolo_checkbox.configure(state="normal", text="Activer YOLOv8 (Détection d'objets)")
+                self.yolo_checkbox.configure(state="normal", text="Activer YOLOv8")
+                if self.vision_engine:
+                    self.vision_engine.enable_yolo(state, model_name=self.yolo_optionmenu.get())
             elif feature == "face_rec":
                 self.face_var.set(state)
                 self.face_checkbox.configure(state="normal", text="Activer Reconnaissance Faciale")
+                if self.vision_engine:
+                    # On lance dans un thread pour éviter de bloquer l'UI lors du DL des visages
+                    threading.Thread(target=self.vision_engine.enable_face_rec, args=(state,), daemon=True).start()
             elif feature == "audio":
                 self.audio_var.set(state)
                 self.audio_checkbox.configure(state="normal", text="Prendre en charge STT / TTS")
+
+    def toggle_recording(self):
+        if not self.audio_engine:
+            self.add_log("Erreur: Moteur audio non initialisé.")
+            return
+            
+        if not self.audio_engine.is_recording:
+            self.audio_engine.start_recording()
+            self.record_btn.configure(text="⏹️ Stopper l'Enregistrement", fg_color="#ef4444", hover_color="#b91c1c")
+            self.transcript_label.configure(text="Vous : (Enregistrement en cours...)")
+            self.response_label.configure(text="Robot : ...")
+        else:
+            self.record_btn.configure(state="disabled", text="⏳ Traitement STT...")
+            wav_path = self.audio_engine.stop_recording()
+            threading.Thread(target=self.process_audio_pipeline, args=(wav_path,), daemon=True).start()
+
+    def process_audio_pipeline(self, wav_path):
+        try:
+            # 1. STT
+            texte_transcrit = self.audio_engine.process_stt(wav_path)
+            self.transcript_label.configure(text=f"Vous : {texte_transcrit}")
+            
+            if not texte_transcrit:
+                return
+
+            # 2. LLM
+            self.record_btn.configure(text="⏳ Réflexion LLM...")
+            model = self.llm_optionmenu.get()
+            if not self.model_running or not self.llm_engine:
+                reponse = "Je suis désolé, mon cerveau LLM n'est pas démarré."
+            else:
+                self.llm_engine.load_model(model)
+                reponse = self.llm_engine.generate_response(texte_transcrit)
+            
+            self.response_label.configure(text=f"Robot : {reponse}")
+
+            # 3. TTS
+            self.record_btn.configure(text="🔊 Lecture Audio...")
+            self.audio_engine.process_tts(reponse)
+            
+        except Exception as e:
+            self.response_label.configure(text=f"Erreur : {e}")
+            self.add_log(f"Erreur pipeline audio : {e}")
+        finally:
+            self.record_btn.configure(state="normal", text="🎙️ Lancer l'Enregistrement", fg_color="#3b82f6", hover_color="#2563eb")
