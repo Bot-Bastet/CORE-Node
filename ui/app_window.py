@@ -314,8 +314,8 @@ class CoreNodeApp(ctk.CTk):
                 if r.status_code == 200:
                     info = r.json().get("details", {})
                     families = info.get("families", []) or []
-                    # On cherche "audio" ou des modèles connus (ex: gemma4)
-                    is_audio_model = "audio" in choice.lower() or "gemma4" in choice.lower()
+                    # On cherche "audio" dans le nom ou la famille
+                    is_audio_model = "audio" in choice.lower()
                     if not is_audio_model and families:
                         is_audio_model = any("audio" in f.lower() for f in families)
                         
