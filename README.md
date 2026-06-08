@@ -11,20 +11,20 @@
 C'est ici que l'intelligence de ton interface prend tout son sens pour gérer la flexibilité des modèles IA.
 
 ### Étape 1 : Interface, Sécurité et Connectivité
-- [ ] Créer l'UI et les onglets (LLM, Vision, Audio, Paramètres).
-- [ ] Sauvegarde sécurisée des identifiants (IP Gateway, API Key) dans le gestionnaire de mots de passe de Windows.
-- [ ] Connexion silencieuse au Gateway au lancement (aucun port ouvert localement).
+- [x] Créer l'UI et les onglets (LLM, Vision, Audio, Paramètres).
+- [x] Sauvegarde locale des identifiants (IP Gateway, Token) via modale Paramètres.
+- [x] Connexion silencieuse au Gateway au lancement (client asynchrone WebSocket).
 
 ### Étape 2 : Le Module de Vision Déportée
-- [ ] Cases à cocher YOLO et Reconnaissance Faciale.
+- [x] Cases à cocher YOLO et Reconnaissance Faciale avec protocole d'état asynchrone.
 - [ ] Récupération du flux RTSP, inférence via OpenCV/modèles locaux, et renvoi des résultats au Gateway.
 
 ### Étape 3 : Le Module LLM et Analyse des Modèles
-- [ ] Système de téléchargement à la volée (via lien HuggingFace) et liste de modèles pré-téléchargés.
+- [x] Système de téléchargement et d'exécution à la volée de modèles LLM locaux via l'API Ollama.
 - [ ] Nouveau : Mettre en place un analyseur de métadonnées du modèle sélectionné pour détecter s'il est "Multimodal" (capable de gérer l'audio nativement) ou "Texte uniquement".
 
 ### Étape 4 : Le Module Audio Déporté (L'Interface Dynamique)
-- [ ] Ajouter la case à cocher principale : "Prendre en charge STT / TTS". (Si cochée, le Raspberry Pi arrête de calculer l'audio).
+- [x] Ajouter la case à cocher principale : "Prendre en charge STT / TTS" avec protocole asynchrone.
 - [ ] Logique de l'UI selon le modèle LLM choisi :
   - **Scénario A (Modèle Multimodal sélectionné)** :
     Afficher/Dégriser la sous-case : "Je préfère utiliser STT et TTS classiques".
@@ -34,6 +34,7 @@ C'est ici que l'intelligence de ton interface prend tout son sens pour gérer la
     La sous-case "Je préfère utiliser STT et TTS classiques" est grisée/désactivée. L'utilisation du STT/TTS classique est forcée. Les menus de choix des modèles STT et TTS classiques sont obligatoirement accessibles.
 
 ### Étape 5 : Exécution et Inférence
-- [ ] Câbler la réception du flux audio brut depuis le Gateway.
-- [ ] Faire tourner la pipeline choisie (Audio->LLM->Audio OU Audio->STT->Texte->LLM->Texte->TTS->Audio) en injectant le "Super-Prompt" du Gateway.
+- [x] Câbler la réception du flux audio (ou l'enregistrement local) et l'inférence locale.
+- [x] Faire tourner la pipeline (Audio->STT Whisper->Texte->LLM Ollama->Texte->TTS pyttsx3->Audio) en test local.
+- [ ] Câbler tout ça sur les messages entrants du Gateway.
 - [ ] Renvoyer le flux audio final généré vers le Gateway pour qu'il le transmette au haut-parleur du robot.
