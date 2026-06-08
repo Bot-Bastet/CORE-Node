@@ -128,20 +128,20 @@ class AudioEngine:
             
         # Chargement tardif ou rechargement si le modèle change
         if self.whisper_model is None or self.current_whisper_model != actual_model:
-            print(f"AudioEngine: Chargement de Faster-Whisper '{actual_model}'...")
-            import torch
+            print(f"AudioEngine: Chargement de Faster-Whisper '{actual_model}' (Patientez lors du premier telechargement)...")
             from faster_whisper import WhisperModel
             
-            device = "cuda" if torch.cuda.is_available() else "cpu"
-            compute_type = "float16" if device == "cuda" else "int8"
-            
-            if device == "cpu":
-                print("ATTENTION: CUDA non detecte. Le STT tournera sur le CPU (LENT).")
-            
-            self.whisper_model = WhisperModel(actual_model, device=device, compute_type=compute_type)
+            try:
+                # ctranslate2 embarque ses propres libs CUDA (indépendant de PyTorch)
+                self.whisper_model = WhisperModel(actual_model, device="cuda", compute_type="float16")
+                print("AudioEngine: Whisper charge sur GPU (CUDA) avec succes.")
+            except Exception as e:
+                print(f"AudioEngine: CUDA indisponible ou echec ({e}). Fallback sur CPU (LENT)...")
+                self.whisper_model = WhisperModel(actual_model, device="cpu", compute_type="int8")
+                
             self.current_whisper_model = actual_model
             
-        print("AudioEngine: Transcription en cours (GPU)...")
+        print("AudioEngine: Transcription en cours...")
         segments, info = self.whisper_model.transcribe(wav_path, language="fr")
         
         texte = " ".join([segment.text for segment in segments]).strip()
