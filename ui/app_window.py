@@ -320,16 +320,20 @@ class CoreNodeApp(ctk.CTk):
         SettingsWindow(self)
 
     def add_log(self, message: str):
-        self.log_box.configure(state="normal")
-        self.log_box.insert("end", message + "\n")
-        self.log_box.see("end")
-        self.log_box.configure(state="disabled")
+        def _add():
+            self.log_box.configure(state="normal")
+            self.log_box.insert("end", message + "\n")
+            self.log_box.see("end")
+            self.log_box.configure(state="disabled")
+        self.after(0, _add)
 
     def add_gateway_log(self, message: str):
-        self.gateway_log_box.configure(state="normal")
-        self.gateway_log_box.insert("end", message + "\n\n")
-        self.gateway_log_box.see("end")
-        self.gateway_log_box.configure(state="disabled")
+        def _add_gw():
+            self.gateway_log_box.configure(state="normal")
+            self.gateway_log_box.insert("end", message + "\n\n")
+            self.gateway_log_box.see("end")
+            self.gateway_log_box.configure(state="disabled")
+        self.after(0, _add_gw)
 
     def reconnect(self):
         self.add_log("🔄 Demande de reconnexion...")
@@ -412,12 +416,12 @@ class CoreNodeApp(ctk.CTk):
         try:
             # 1. STT
             if self.llm_native_audio_var.get():
-                self.transcript_label.configure(text=f"Vous : (Audio envoyé au LLM multimodal)")
+                self.after(0, lambda: self.transcript_label.configure(text=f"Vous : (Audio envoyé au LLM multimodal)"))
                 self.add_gateway_log(f"👤 Humain :\n[Fichier Audio Brut]")
                 texte_transcrit = "[AUDIO]" # Marqueur pour le LLM
             else:
                 texte_transcrit = self.audio_engine.process_stt(wav_path)
-                self.transcript_label.configure(text=f"Vous : {texte_transcrit}")
+                self.after(0, lambda t=texte_transcrit: self.transcript_label.configure(text=f"Vous : {t}"))
                 self.add_gateway_log(f"👤 Humain :\n\"{texte_transcrit}\"")
                 
                 if not texte_transcrit:
@@ -425,7 +429,7 @@ class CoreNodeApp(ctk.CTk):
                     return
 
             # 2. LLM
-            self.record_btn.configure(text="⏳ Réflexion LLM...")
+            self.after(0, lambda: self.record_btn.configure(text="⏳ Réflexion LLM..."))
             model = self.llm_optionmenu.get()
             if not self.model_running or not self.llm_engine:
                 reponse = "Je suis désolé, mon cerveau LLM n'est pas démarré."
@@ -434,17 +438,17 @@ class CoreNodeApp(ctk.CTk):
                 self.add_gateway_log("🧠 LLM : Génération de la réponse en cours avec le contexte visuel/MyGES...")
                 reponse = self.llm_engine.generate_response(texte_transcrit)
             
-            self.response_label.configure(text=f"Robot : {reponse}")
+            self.after(0, lambda r=reponse: self.response_label.configure(text=f"Robot : {r}"))
             self.add_gateway_log(f"🤖 Bastet :\n\"{reponse}\"")
 
             # 3. TTS
-            self.record_btn.configure(text="🔊 Lecture Audio...")
+            self.after(0, lambda: self.record_btn.configure(text="🔊 Lecture Audio..."))
             self.audio_engine.process_tts(reponse)
             self.add_gateway_log("🔊 Audio TTS généré et transmis au haut-parleur.")
             
         except Exception as e:
-            self.response_label.configure(text=f"Erreur : {e}")
+            self.after(0, lambda err=e: self.response_label.configure(text=f"Erreur : {err}"))
             self.add_log(f"Erreur pipeline audio : {e}")
             self.add_gateway_log(f"❌ Erreur critique : {e}")
         finally:
-            self.record_btn.configure(state="normal", text="🎙️ Lancer l'Enregistrement", fg_color="#3b82f6", hover_color="#2563eb")
+            self.after(0, lambda: self.record_btn.configure(state="normal", text="🎙️ Lancer l'Enregistrement", fg_color="#3b82f6", hover_color="#2563eb"))
