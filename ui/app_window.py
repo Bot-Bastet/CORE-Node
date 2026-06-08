@@ -129,7 +129,7 @@ class CoreNodeApp(ctk.CTk):
 
         self.tts_label = ctk.CTkLabel(self.audio_models_frame, text="Modèle TTS :")
         self.tts_label.grid(row=1, column=0, sticky="w", padx=5, pady=5)
-        self.tts_optionmenu = ctk.CTkOptionMenu(self.audio_models_frame, values=["Voice 1 (Rapide)", "Voice 2 (Lourd/HD)", "Piper TTS (Moyen)", "Bark (Très Lourd)"], command=self.on_tts_changed)
+        self.tts_optionmenu = ctk.CTkOptionMenu(self.audio_models_frame, values=["Voice 1 (Rapide)", "Voice 2 (Lourd/HD)", "[À VENIR] Piper TTS", "[À VENIR] Bark"], command=self.on_tts_changed)
         self.tts_optionmenu.grid(row=1, column=1, sticky="w", padx=5, pady=5)
         
         self.llm_native_audio_var = ctk.BooleanVar(value=False)
@@ -253,7 +253,10 @@ class CoreNodeApp(ctk.CTk):
             threading.Thread(target=self.audio_engine.preload_stt_model, args=(choice, _done), daemon=True).start()
 
     def on_tts_changed(self, choice):
-        self.add_log(f"⚙️ Voix TTS changée pour : {choice} (Instantané via Windows)")
+        if "À VENIR" in choice or "Piper" in choice or "Bark" in choice:
+            self.add_log(f"⚠️ {choice} n'est pas encore programmé ! La voix de secours Windows sera utilisée.")
+        else:
+            self.add_log(f"⚙️ Voix TTS changée pour : {choice} (Instantané via Windows)")
 
     def on_llm_selected(self, choice):
         if choice in ["Aucun modèle", "Chargement...", "Ollama injoignable", "Erreur API Ollama"]:
