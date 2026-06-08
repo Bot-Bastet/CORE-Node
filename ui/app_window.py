@@ -124,11 +124,12 @@ class CoreNodeApp(ctk.CTk):
         self.audio_models_frame.grid(row=5, column=0, sticky="w", pady=5, padx=20)
 
         ctk.CTkLabel(self.audio_models_frame, text="Modèle STT :").grid(row=0, column=0, sticky="w", padx=5)
-        self.stt_optionmenu = ctk.CTkOptionMenu(self.audio_models_frame, values=["Whisper Tiny (Vite)", "Whisper Base", "Whisper Small", "Whisper Medium (Précis)"])
+        self.stt_optionmenu = ctk.CTkOptionMenu(self.audio_models_frame, values=["Whisper Tiny (Vite)", "Whisper Base", "Whisper Small", "Whisper Medium (Précis)"], command=self.on_stt_changed)
         self.stt_optionmenu.grid(row=0, column=1, sticky="w", padx=5, pady=5)
 
-        ctk.CTkLabel(self.audio_models_frame, text="Modèle TTS :").grid(row=1, column=0, sticky="w", padx=5)
-        self.tts_optionmenu = ctk.CTkOptionMenu(self.audio_models_frame, values=["Voice 1 (Rapide)", "Voice 2 (Lourd/HD)", "Piper TTS (Moyen)", "Bark (Très Lourd)"])
+        self.tts_label = ctk.CTkLabel(self.audio_models_frame, text="Modèle TTS :")
+        self.tts_label.grid(row=1, column=0, sticky="w", padx=5, pady=5)
+        self.tts_optionmenu = ctk.CTkOptionMenu(self.audio_models_frame, values=["Voice 1 (Rapide)", "Voice 2 (Lourd/HD)", "Piper TTS (Moyen)", "Bark (Très Lourd)"], command=self.on_tts_changed)
         self.tts_optionmenu.grid(row=1, column=1, sticky="w", padx=5, pady=5)
         
         self.llm_native_audio_var = ctk.BooleanVar(value=False)
@@ -243,6 +244,12 @@ class CoreNodeApp(ctk.CTk):
         else:
             self.llm_optionmenu.configure(values=["Aucun modèle"])
             self.llm_optionmenu.set("Aucun modèle")
+
+    def on_stt_changed(self, choice):
+        self.add_log(f"⚙️ Configuration STT (Oreilles) modifiée : {choice}")
+
+    def on_tts_changed(self, choice):
+        self.add_log(f"⚙️ Configuration TTS (Voix) modifiée : {choice}")
 
     def on_llm_selected(self, choice):
         if choice in ["Aucun modèle", "Chargement...", "Ollama injoignable", "Erreur API Ollama"]:
