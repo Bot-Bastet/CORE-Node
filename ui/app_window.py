@@ -55,7 +55,7 @@ class CoreNodeApp(ctk.CTk):
         self.title("Bastet CORE-Node")
         self.geometry("1100x750")
 
-        self.gateway_url = "ws://127.0.0.1:8001/ws/node"
+        self.gateway_url = "ws://127.0.0.1:44888/ws/node"
         self.gateway_token = "your-api-token-here"
         self.node_coordinates = "Node-Salon"
         self.model_running = False
