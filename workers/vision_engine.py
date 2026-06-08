@@ -6,6 +6,10 @@ import json
 import os
 import face_recognition
 import numpy as np
+import unicodedata
+
+def remove_accents(input_str):
+    return unicodedata.normalize('NFKD', input_str).encode('ASCII', 'ignore').decode('utf-8')
 
 class VisionEngine:
     def __init__(self, gateway_url="http://127.0.0.1:8001", rtsp_url="rtsp://127.0.0.1:8554/cam1"):
@@ -127,11 +131,18 @@ class VisionEngine:
                 time.sleep(1)
                 continue
             
+            # 1. Traitement YOLO (en premier pour ne pas écraser les dessins FaceRec)
+            if self.yolo_enabled and self.yolo_model is not None:
+                # YOLOv8 dessine les boîtes automatiquement avec results[0].plot()
+                # On baisse la confiance à 0.2 pour détecter plus facilement les téléphones
+                results = self.yolo_model.predict(frame, verbose=False, conf=0.2)
+                frame = results[0].plot()
+
             # Redimensionner pour optimiser la reconnaissance faciale (plus rapide)
             small_frame = cv2.resize(frame, (0, 0), fx=0.5, fy=0.5)
             rgb_small_frame = cv2.cvtColor(small_frame, cv2.COLOR_BGR2RGB)
             
-            # 1. Traitement Face Recognition
+            # 2. Traitement Face Recognition
             if self.face_rec_enabled and len(self.known_face_encodings) > 0:
                 face_locations = face_recognition.face_locations(rgb_small_frame)
                 face_encodings = face_recognition.face_encodings(rgb_small_frame, face_locations)
@@ -146,15 +157,11 @@ class VisionEngine:
                         if matches[best_match_index]:
                             name = self.known_face_names[best_match_index]
                     
+                    name_clean = remove_accents(name)
+                    
                     # Dessiner le rectangle visage (on multiplie par 2 car on avait fx=0.5)
                     cv2.rectangle(frame, (left*2, top*2), (right*2, bottom*2), (0, 255, 0), 2)
-                    cv2.putText(frame, name, (left*2 + 6, bottom*2 - 6), cv2.FONT_HERSHEY_DUPLEX, 0.8, (255, 255, 255), 1)
-
-            # 2. Traitement YOLO
-            if self.yolo_enabled and self.yolo_model is not None:
-                # YOLOv8 dessine les boîtes automatiquement avec results[0].plot()
-                results = self.yolo_model.predict(frame, verbose=False)
-                frame = results[0].plot()
+                    cv2.putText(frame, name_clean, (left*2 + 6, bottom*2 - 6), cv2.FONT_HERSHEY_DUPLEX, 0.8, (255, 255, 255), 1)
 
             # Affichage de la fenêtre
             cv2.imshow(window_name, frame)

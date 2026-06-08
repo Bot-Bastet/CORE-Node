@@ -62,7 +62,8 @@ class CoreNodeApp(ctk.CTk):
         self.gateway_client = None
 
         # Layout configuration
-        self.grid_columnconfigure(1, weight=1)
+        self.grid_columnconfigure(1, weight=3) # Main frame
+        self.grid_columnconfigure(2, weight=2) # Right sidebar (Gateway logs)
         self.grid_rowconfigure(0, weight=1)
 
         # ─── Sidebar (Menu) ───
@@ -181,6 +182,18 @@ class CoreNodeApp(ctk.CTk):
         self.install_status = ctk.CTkLabel(self.install_frame, text="", text_color="yellow")
         self.install_status.pack(side="left", padx=10)
 
+        # ─── Right Sidebar (Gateway Logs & Chat) ───
+        self.right_sidebar = ctk.CTkFrame(self, width=250, corner_radius=0)
+        self.right_sidebar.grid(row=0, column=2, sticky="nsew")
+        self.right_sidebar.grid_rowconfigure(1, weight=1)
+        
+        self.gateway_logs_title = ctk.CTkLabel(self.right_sidebar, text="🌐 Gateway & Contexte", font=ctk.CTkFont(size=14, weight="bold"))
+        self.gateway_logs_title.grid(row=0, column=0, padx=20, pady=(20, 10))
+        
+        self.gateway_log_box = ctk.CTkTextbox(self.right_sidebar, width=250, font=ctk.CTkFont(size=11), fg_color="#12121a", text_color="#e2e8f0")
+        self.gateway_log_box.grid(row=1, column=0, padx=10, pady=(0, 20), sticky="nsew")
+        self.gateway_log_box.configure(state="disabled")
+
         self.after(100, self.fetch_ollama_models)
         self.check_cuda()
 
@@ -257,6 +270,12 @@ class CoreNodeApp(ctk.CTk):
         self.log_box.insert("end", message + "\n")
         self.log_box.see("end")
         self.log_box.configure(state="disabled")
+
+    def add_gateway_log(self, message: str):
+        self.gateway_log_box.configure(state="normal")
+        self.gateway_log_box.insert("end", message + "\n\n")
+        self.gateway_log_box.see("end")
+        self.gateway_log_box.configure(state="disabled")
 
     def reconnect(self):
         self.add_log("🔄 Demande de reconnexion...")
@@ -340,6 +359,7 @@ class CoreNodeApp(ctk.CTk):
             # 1. STT
             texte_transcrit = self.audio_engine.process_stt(wav_path)
             self.transcript_label.configure(text=f"Vous : {texte_transcrit}")
+            self.add_gateway_log(f"👤 Humain :\n\"{texte_transcrit}\"")
             
             if not texte_transcrit:
                 return
@@ -351,16 +371,20 @@ class CoreNodeApp(ctk.CTk):
                 reponse = "Je suis désolé, mon cerveau LLM n'est pas démarré."
             else:
                 self.llm_engine.load_model(model)
+                self.add_gateway_log("🧠 LLM : Génération de la réponse en cours avec le contexte visuel/MyGES...")
                 reponse = self.llm_engine.generate_response(texte_transcrit)
             
             self.response_label.configure(text=f"Robot : {reponse}")
+            self.add_gateway_log(f"🤖 Bastet :\n\"{reponse}\"")
 
             # 3. TTS
             self.record_btn.configure(text="🔊 Lecture Audio...")
             self.audio_engine.process_tts(reponse)
+            self.add_gateway_log("🔊 Audio TTS généré et transmis au haut-parleur.")
             
         except Exception as e:
             self.response_label.configure(text=f"Erreur : {e}")
             self.add_log(f"Erreur pipeline audio : {e}")
+            self.add_gateway_log(f"❌ Erreur critique : {e}")
         finally:
             self.record_btn.configure(state="normal", text="🎙️ Lancer l'Enregistrement", fg_color="#3b82f6", hover_color="#2563eb")
