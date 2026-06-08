@@ -42,7 +42,7 @@ class AudioEngine:
         # Vérification du volume
         volume = np.max(np.abs(audio_concat))
         if volume < 0.005:
-            print("AudioEngine: ⚠️ AVERTISSEMENT : Aucun son détecté (Volume très faible). Vérifiez que votre micro n'est pas muet.")
+            print("AudioEngine: AVERTISSEMENT : Aucun son detecte (Volume tres faible). Verifiez que votre micro n'est pas muet.")
             
         wav_path = "temp_recording.wav"
         # Sauvegarde en int16 (standard pour Whisper)
@@ -66,7 +66,7 @@ class AudioEngine:
             compute_type = "float16" if device == "cuda" else "int8"
             
             if device == "cpu":
-                print("⚠️ ATTENTION: CUDA non détecté. Le STT tournera sur le CPU (LENT).")
+                print("ATTENTION: CUDA non detecte. Le STT tournera sur le CPU (LENT).")
             
             self.whisper_model = WhisperModel("base", device=device, compute_type=compute_type)
             
@@ -74,7 +74,7 @@ class AudioEngine:
         segments, info = self.whisper_model.transcribe(wav_path, language="fr")
         
         texte = " ".join([segment.text for segment in segments]).strip()
-        print(f"AudioEngine: STT -> '{texte}'")
+        print("AudioEngine: STT termine.")
         return texte
 
     def process_tts(self, text: str):
@@ -91,6 +91,6 @@ class AudioEngine:
                     self.tts_engine.setProperty('voice', voice.id)
                     break
         
-        print(f"AudioEngine: Lecture TTS -> '{text}'")
+        print("AudioEngine: Lecture TTS en cours...")
         self.tts_engine.say(text)
         self.tts_engine.runAndWait()
