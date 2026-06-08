@@ -130,6 +130,11 @@ class CoreNodeApp(ctk.CTk):
         ctk.CTkLabel(self.audio_models_frame, text="Modèle TTS :").grid(row=1, column=0, sticky="w", padx=5)
         self.tts_optionmenu = ctk.CTkOptionMenu(self.audio_models_frame, values=["Voice 1 (Rapide)", "Voice 2 (Lourd/HD)", "Piper TTS (Moyen)", "Bark (Très Lourd)"])
         self.tts_optionmenu.grid(row=1, column=1, sticky="w", padx=5, pady=5)
+        
+        self.llm_native_audio_var = ctk.BooleanVar(value=False)
+        self.llm_native_audio_checkbox = ctk.CTkCheckBox(self.audio_models_frame, text="✨ Le LLM gère le STT (Audio Natif)", variable=self.llm_native_audio_var, text_color="yellow")
+        # Masqué par défaut, s'affichera si le LLM le supporte
+        self.llm_native_audio_checkbox.grid_forget()
 
         # Sous-section Test Vocal Local
         self.test_audio_frame = ctk.CTkFrame(self.main_frame, border_width=1, border_color="#2d2d3d")
@@ -154,7 +159,7 @@ class CoreNodeApp(ctk.CTk):
         self.llm_frame = ctk.CTkFrame(self.main_frame, fg_color="transparent")
         self.llm_frame.grid(row=8, column=0, sticky="ew")
 
-        self.llm_optionmenu = ctk.CTkOptionMenu(self.llm_frame, values=["Chargement..."], width=200)
+        self.llm_optionmenu = ctk.CTkOptionMenu(self.llm_frame, values=["Chargement..."], width=200, command=self.on_llm_selected)
         self.llm_optionmenu.pack(side="left", padx=(0, 10))
         
         self.refresh_btn = ctk.CTkButton(self.llm_frame, text="🔄 Actualiser", width=80, command=self.fetch_ollama_models)
@@ -232,9 +237,32 @@ class CoreNodeApp(ctk.CTk):
             current_selection = self.llm_optionmenu.get()
             if current_selection not in models:
                 self.llm_optionmenu.set(models[0])
+                self.on_llm_selected(models[0])
+            else:
+                self.on_llm_selected(current_selection)
         else:
             self.llm_optionmenu.configure(values=["Aucun modèle"])
             self.llm_optionmenu.set("Aucun modèle")
+
+    def on_llm_selected(self, choice):
+        if choice in ["Aucun modèle", "Chargement...", "Ollama injoignable", "Erreur API Ollama"]:
+            return
+        def _check():
+            try:
+                r = requests.post("http://localhost:11434/api/show", json={"name": choice}, timeout=2)
+                if r.status_code == 200:
+                    info = r.json().get("details", {})
+                    families = info.get("families", [])
+                    # On cherche "audio" dans le nom ou les familles pour activer la case
+                    if "audio" in choice.lower() or any("audio" in f.lower() for f in families):
+                        self.after(0, lambda: self.llm_native_audio_checkbox.grid(row=2, column=0, columnspan=2, sticky="w", padx=5, pady=5))
+                    else:
+                        self.after(0, self.llm_native_audio_checkbox.grid_forget)
+                        self.after(0, lambda: self.llm_native_audio_var.set(False))
+            except Exception:
+                self.after(0, self.llm_native_audio_checkbox.grid_forget)
+                self.after(0, lambda: self.llm_native_audio_var.set(False))
+        threading.Thread(target=_check, daemon=True).start()
 
     def update_install_progress(self, pct, status):
         if pct is not None:
@@ -383,12 +411,18 @@ class CoreNodeApp(ctk.CTk):
     def process_audio_pipeline(self, wav_path):
         try:
             # 1. STT
-            texte_transcrit = self.audio_engine.process_stt(wav_path)
-            self.transcript_label.configure(text=f"Vous : {texte_transcrit}")
-            self.add_gateway_log(f"👤 Humain :\n\"{texte_transcrit}\"")
-            
-            if not texte_transcrit:
-                return
+            if self.llm_native_audio_var.get():
+                self.transcript_label.configure(text=f"Vous : (Audio envoyé au LLM multimodal)")
+                self.add_gateway_log(f"👤 Humain :\n[Fichier Audio Brut]")
+                texte_transcrit = "[AUDIO]" # Marqueur pour le LLM
+            else:
+                texte_transcrit = self.audio_engine.process_stt(wav_path)
+                self.transcript_label.configure(text=f"Vous : {texte_transcrit}")
+                self.add_gateway_log(f"👤 Humain :\n\"{texte_transcrit}\"")
+                
+                if not texte_transcrit:
+                    self.add_log("⚠️ Aucun texte reconnu par Whisper. Avez-vous parlé ?")
+                    return
 
             # 2. LLM
             self.record_btn.configure(text="⏳ Réflexion LLM...")

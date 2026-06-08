@@ -38,9 +38,17 @@ class AudioEngine:
             return ""
             
         audio_concat = np.concatenate(self.audio_data, axis=0)
+        
+        # Vérification du volume
+        volume = np.max(np.abs(audio_concat))
+        if volume < 0.005:
+            print("AudioEngine: ⚠️ AVERTISSEMENT : Aucun son détecté (Volume très faible). Vérifiez que votre micro n'est pas muet.")
+            
         wav_path = "temp_recording.wav"
-        write(wav_path, self.sample_rate, audio_concat)
-        print(f"AudioEngine: Enregistrement sauvegardé dans {wav_path}.")
+        # Sauvegarde en int16 (standard pour Whisper)
+        audio_int16 = (audio_concat * 32767).astype(np.int16)
+        write(wav_path, self.sample_rate, audio_int16)
+        print(f"AudioEngine: Enregistrement sauvegardé dans {wav_path} (Volume max: {volume:.4f}).")
         return wav_path
 
     def process_stt(self, wav_path: str) -> str:
