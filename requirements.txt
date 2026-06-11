@@ -9,3 +9,6 @@ sounddevice==0.4.6
 scipy==1.11.4
 faster-whisper
 pyttsx3==2.90
+torch
+transformers
+piper-tts

@@ -6,6 +6,34 @@
 
 **Utilité** : Agir comme le "muscle" du projet. Il permet d'utiliser des modèles très performants (comme Gemma 12B ou Mistral) et d'analyser des flux vidéo en temps réel pour soulager totalement le Raspberry Pi du robot, garantissant ainsi une réactivité maximale.
 
+## 🚀 Installation et Exécution
+
+### 1. Prérequis
+- **Python 3.10+**
+- **Ollama** : Installé et fonctionnel ([télécharger ici](https://ollama.com/)).
+- **Modèles Ollama** : Assurez-vous d'avoir téléchargé les modèles que vous souhaitez utiliser (ex: `ollama pull gemma:2b`).
+- **Accélération GPU** (Optionnel mais recommandé) : Drivers CUDA installés pour YOLO et Whisper.
+
+### 2. Installation
+Clonez le dépôt et installez les dépendances :
+```bash
+git clone https://github.com/Bot-Bastet/CORE-Node.git
+cd CORE-Node
+pip install -r requirements.txt
+```
+
+### 3. Utilisation
+Lancez l'application principale :
+```bash
+python main.py
+```
+
+### 4. Configuration
+- Une fois l'application lancée, allez dans l'onglet **Paramètres** pour configurer l'adresse IP du Gateway et votre Token.
+- Activez les modules souhaités (Vision, Audio, LLM) via les cases à cocher.
+- Pour le module **Vision**, le modèle YOLOv8n sera téléchargé automatiquement au premier lancement.
+- Pour le module **Audio**, le modèle Piper sera téléchargé localement si vous sélectionnez cette voix.
+
 ## 💻 ROADMAP : CORE-Node (L'Application Windows / PC Puissant)
 
 C'est ici que l'intelligence de ton interface prend tout son sens pour gérer la flexibilité des modèles IA.
