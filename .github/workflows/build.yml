@@ -1,36 +1,96 @@
-name: Build Windows Release
+name: Build and Release
 
 on:
   push:
     branches: [ "master", "main" ]
+    tags:
+      - 'v*'
   workflow_dispatch:
 
 jobs:
+  lint:
+    name: Lint Code
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+          cache: 'pip'
+          
+      - name: Install flake8
+        run: pip install flake8
+        
+      - name: Run flake8
+        run: |
+          # Stop the build if there are Python syntax errors or undefined names
+          flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+          # Exit-zero treats all errors as warnings
+          flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+
   build-windows:
+    name: Build Windows Executable
+    needs: lint
     runs-on: windows-latest
     
     steps:
-    - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+          cache: 'pip'
+          
+      - name: Install Build Tools (CMake for dlib)
+        run: pip install cmake
+          
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pyinstaller
+          
+      - name: Build with PyInstaller
+        run: |
+          pyinstaller --noconfirm --onedir --windowed --collect-all customtkinter --collect-all ultralytics --name "CORE-Node" main.py
+          
+      - name: Archive Release
+        uses: thedoctor0/zip-release@0.7.5
+        with:
+          type: 'zip'
+          filename: 'CORE-Node-Windows.zip'
+          directory: 'dist/CORE-Node'
+          
+      - name: Upload Build Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: CORE-Node-Release
+          path: dist/CORE-Node/CORE-Node-Windows.zip
+          retention-days: 7
+
+  release:
+    name: Create GitHub Release
+    needs: build-windows
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
     
-    - name: Set up Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: '3.10'
-        
-    - name: Install Build Tools (CMake for dlib)
-      run: pip install cmake
-        
-    - name: Install Dependencies
-      run: |
-        pip install -r requirements.txt
-        pip install pyinstaller
-        
-    - name: Build with PyInstaller
-      run: |
-        pyinstaller --noconfirm --onedir --windowed --collect-all customtkinter --collect-all ultralytics --name "CORE-Node" main.py
-        
-    - name: Upload Build Artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: CORE-Node-Release
-        path: dist/CORE-Node/
+    permissions:
+      contents: write
+      
+    steps:
+      - name: Download Build Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: CORE-Node-Release
+          path: ./release-asset
+          
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ./release-asset/CORE-Node-Windows.zip
+          draft: false
+          prerelease: false
+          generate_release_notes: true
