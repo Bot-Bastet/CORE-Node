@@ -66,8 +66,6 @@ jobs:
           
       - name: Upload Build Artifact
         uses: actions/upload-artifact@v4
-        # Only upload artifacts for release tags to save storage quota
-        if: startsWith(github.ref, 'refs/tags/v')
         with:
           name: CORE-Node-Release
           path: dist/CORE-Node/CORE-Node-Windows.zip
@@ -77,7 +75,6 @@ jobs:
     name: Create GitHub Release
     needs: build-windows
     runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/v')
     
     permissions:
       contents: write
@@ -89,9 +86,11 @@ jobs:
           name: CORE-Node-Release
           path: ./release-asset
           
-      - name: Create Release
+      - name: Create or Update Release
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || 'latest' }}
+          name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || 'Latest Release' }}
           files: ./release-asset/CORE-Node-Windows.zip
           draft: false
           prerelease: false
