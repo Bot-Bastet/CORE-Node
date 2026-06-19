@@ -273,6 +273,10 @@ class CoreNodeApp(ctk.CTk):
         else:
             self.llm_optionmenu.configure(values=["Aucun modèle"])
             self.llm_optionmenu.set("Aucun modèle")
+            
+        # Lancement automatique du modèle sélectionné au démarrage
+        if models and not self.model_running:
+            self.after(500, self.toggle_model)
 
     def on_stt_changed(self, choice):
         self.add_log(f"📥 Téléchargement/Chargement du modèle STT : {choice} en cours...")
