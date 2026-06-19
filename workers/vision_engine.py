@@ -4,7 +4,12 @@ import cv2
 import requests
 import json
 import os
-import face_recognition
+try:
+    import face_recognition
+    FACE_REC_AVAILABLE = True
+except ImportError:
+    face_recognition = None
+    FACE_REC_AVAILABLE = False
 import numpy as np
 import unicodedata
 
@@ -50,6 +55,11 @@ class VisionEngine:
                 self.current_yolo_model_name = model_name
 
     def enable_face_rec(self, state: bool):
+        if state and not FACE_REC_AVAILABLE:
+            print("VisionEngine: face_recognition n'est pas disponible (manquant).")
+            self.face_rec_enabled = False
+            return
+            
         self.face_rec_enabled = state
         print(f"VisionEngine: Reconnaissance Faciale {'activée' if state else 'désactivée'}")
         

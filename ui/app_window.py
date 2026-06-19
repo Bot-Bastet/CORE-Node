@@ -239,11 +239,14 @@ class CoreNodeApp(ctk.CTk):
         self.update()
 
     def check_cuda(self):
-        import torch
-        if torch.cuda.is_available():
-            self.add_log("⚡ Accélération matérielle NVIDIA (CUDA) détectée et active !")
-        else:
-            self.add_log("❌ CUDA non détecté. L'IA tournera sur le CPU (Lent). Vérifiez votre installation PyTorch.")
+        try:
+            import torch
+            if torch.cuda.is_available():
+                self.add_log("⚡ Accélération matérielle NVIDIA (CUDA) détectée et active !")
+            else:
+                self.add_log("❌ CUDA non détecté. L'IA tournera sur le CPU (Lent). Vérifiez votre installation PyTorch.")
+        except ImportError:
+            self.add_log("❌ PyTorch non détecté. Les modules IA de vision et d'audio lourds (YOLO, Whisper, Bark) nécessitent une installation locale de PyTorch.")
 
     def fetch_ollama_models(self):
         def _fetch():
@@ -397,6 +400,7 @@ class CoreNodeApp(ctk.CTk):
         SettingsWindow(self)
 
     def add_log(self, message: str):
+        print(f"[LOG] {message}")
         def _add():
             self.log_box.configure(state="normal")
             self.log_box.insert("end", message + "\n")
@@ -405,6 +409,7 @@ class CoreNodeApp(ctk.CTk):
         self.after(0, _add)
 
     def add_gateway_log(self, message: str):
+        print(f"[GATEWAY] {message}")
         def _add_gw():
             self.gateway_log_box.configure(state="normal")
             self.gateway_log_box.insert("end", message + "\n\n")
