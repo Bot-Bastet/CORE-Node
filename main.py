@@ -27,8 +27,8 @@ if __name__ == "__main__":
     # L'IP et le Token pourront être récupérés depuis l'UI ou un config file plus tard
     gateway_client = GatewayClient(
         app_instance=app,
-        gateway_url="ws://127.0.0.1:8001/ws/node",
-        token="your-api-token-here"
+        gateway_url="wss://ha.arthonetwork.fr:44888/ws/node",
+        token="bst_c9f28d3a1e4b85c7f0d4b9a2e6f1c3d5"
     )
     app.gateway_client = gateway_client
     
