@@ -69,6 +69,38 @@ class GatewayClient:
                     data = json.loads(message)
                     if data.get("type") == "feature_ack":
                         self.app.handle_feature_ack(data.get("feature"), data.get("state"), data.get("status"))
+                    elif data.get("type") == "chat":
+                        prompt = data.get("text", "")
+                        context = data.get("context", "")
+                        self.app.add_log(f"📥 Message chat reçu : '{prompt}'")
+                        self.app.add_gateway_log(f"👤 Humain (via robot) :\n\"{prompt}\"")
+                        
+                        # Générer la réponse de façon non-bloquante dans un thread
+                        async def process_llm_request():
+                            try:
+                                if self.app.llm_engine:
+                                    self.app.add_log("🧠 Inférence LLM en cours...")
+                                    response_text = await asyncio.to_thread(
+                                        self.app.llm_engine.generate_response, 
+                                        prompt, 
+                                        context=context
+                                    )
+                                else:
+                                    response_text = "Moteur LLM non disponible."
+                                
+                                self.app.add_log(f"📤 Envoi de la réponse chat : '{response_text}'")
+                                self.app.add_gateway_log(f"🤖 Bastet :\n\"{response_text}\"")
+                                
+                                response_msg = {
+                                    "type": "chat_response",
+                                    "text": response_text
+                                }
+                                await self.send_message(json.dumps(response_msg))
+                            except Exception as e:
+                                self.app.add_log(f"❌ Erreur inférence/envoi : {e}")
+                        
+                        asyncio.create_task(process_llm_request())
+                        
                 except json.JSONDecodeError:
                     pass # Message non-JSON (audio, texte brut, etc)
         except websockets.exceptions.ConnectionClosed:

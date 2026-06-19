@@ -11,17 +11,21 @@ class LLMEngine:
         print(f"LLMEngine: Modèle sélectionné -> {model_name}")
         self.current_model = model_name
 
-    def generate_response(self, prompt: str, context_history: list = None, audio_path: str = None) -> str:
+    def generate_response(self, prompt: str, context_history: list = None, audio_path: str = None, context: str = None) -> str:
         """Génère une réponse textuelle complète (non streamée) pour le test vocal."""
         if not self.current_model or self.current_model in ["Aucun modèle", "Chargement..."]:
             return "Aucun modèle LLM n'est démarré."
             
         print(f"LLMEngine: Inférence sur '{prompt}' avec {self.current_model}")
         
-        # On peut rajouter un contexte (system prompt) pour qu'il réponde brièvement
-        full_prompt = f"Tu es le cerveau d'un robot appelé Bastet. Réponds toujours en français, de manière très courte et concise. Voici la phrase de l'utilisateur : {prompt}"
+        # Intégrer le contexte d'agenda
+        system_prompt = "Tu es le cerveau d'un robot appelé Bastet. Réponds toujours en français, de manière très courte et concise."
+        if context:
+            system_prompt += f"\nVoici des informations de contexte d'agenda à jour de l'utilisateur pour répondre à ses questions :\n{context}"
+            
+        full_prompt = f"{system_prompt}\nVoici la phrase de l'utilisateur : {prompt}"
         if prompt == "[AUDIO]":
-            full_prompt = "Tu es le cerveau d'un robot appelé Bastet. Écoute l'audio fourni et réponds brièvement en français."
+            full_prompt = f"{system_prompt}\nÉcoute l'audio fourni et réponds brièvement."
         
         payload = {
             "model": self.current_model,
