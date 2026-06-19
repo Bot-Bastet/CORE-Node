@@ -27,6 +27,8 @@ class GatewayClient:
             
             # Utiliser la gateway_url fraîche de l'UI
             url_to_use = self.app.gateway_url
+            if "?token=" not in url_to_use:
+                url_to_use = f"{url_to_use}?token={self.token}"
             use_ssl = ssl_context if url_to_use.startswith("wss") else None
             
             try:
