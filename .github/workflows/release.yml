@@ -20,11 +20,19 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Install dependencies
+      - name: Install UI and core dependencies
         run: |
           python -m pip install --upgrade pip
           pip install pyinstaller
-          pip install customtkinter websockets requests
+          pip install customtkinter
+          pip install requests
+          pip install websockets
+          pip install pillow
+
+      - name: Extract version
+        id: version
+        shell: bash
+        run: echo "VERSION=${GITHUB_REF_NAME}" >> $GITHUB_OUTPUT
 
       - name: Build .exe with PyInstaller
         run: |
@@ -32,32 +40,15 @@ jobs:
             --onefile `
             --windowed `
             --name "CORE-Node" `
-            --icon "ui/assets/icon.ico" `
-            --add-data "ui/assets;ui/assets" `
             --hidden-import "customtkinter" `
             --hidden-import "websockets" `
+            --hidden-import "requests" `
+            --collect-all "customtkinter" `
             main.py
-        continue-on-error: false
-
-      - name: Fallback build (without icon if missing)
-        if: failure()
-        run: |
-          pyinstaller `
-            --onefile `
-            --windowed `
-            --name "CORE-Node" `
-            --hidden-import "customtkinter" `
-            --hidden-import "websockets" `
-            main.py
-
-      - name: Extract version
-        id: version
-        shell: bash
-        run: echo "VERSION=${GITHUB_REF_NAME}" >> $GITHUB_OUTPUT
 
       - name: Rename output
         run: |
-          mv dist/CORE-Node.exe dist/CORE-Node-${{ steps.version.outputs.VERSION }}.exe
+          move dist\CORE-Node.exe dist\CORE-Node-${{ steps.version.outputs.VERSION }}.exe
 
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
@@ -70,10 +61,12 @@ jobs:
 
             ### Installation
             1. Télécharger `CORE-Node-${{ steps.version.outputs.VERSION }}.exe`
-            2. Lancer l'application
+            2. Lancer l'application — les dépendances lourdes (Torch, Whisper, Ollama) sont chargées à la demande au runtime, pas dans le .exe
             3. Configurer l'IP de la Gateway et le Token dans Paramètres
 
-            ### Mise à jour
+            > **Note** : Ollama doit être installé séparément sur la machine. Le .exe ne contient que l'interface et le gestionnaire de connexions.
+
+            ### Mise à jour automatique
             L'application vérifie automatiquement les nouvelles versions au démarrage.
           files: |
             dist/CORE-Node-${{ steps.version.outputs.VERSION }}.exe
