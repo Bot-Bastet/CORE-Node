@@ -6,6 +6,7 @@ from network.gateway_client import GatewayClient
 from workers.audio_engine import AudioEngine
 from workers.llm_engine import LLMEngine
 from workers.vision_engine import VisionEngine
+from updater import start_update_check_thread
 
 def run_asyncio_loop(loop):
     asyncio.set_event_loop(loop)
@@ -19,6 +20,9 @@ if __name__ == "__main__":
     # Initialisation de l'UI
     app = CoreNodeApp(audio_engine, llm_engine, vision_engine)
     
+    # Vérification des mises à jour en arrière-plan (2s après le démarrage)
+    start_update_check_thread()
+
     # Création du client réseau
     # L'IP et le Token pourront être récupérés depuis l'UI ou un config file plus tard
     gateway_client = GatewayClient(
@@ -40,3 +44,4 @@ if __name__ == "__main__":
     
     # Lancement de l'UI (boucle bloquante)
     app.mainloop()
+

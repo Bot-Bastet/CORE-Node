@@ -37,3 +37,10 @@ fr_FR-siwis-low.onnx
 fr_FR-siwis-low.onnx.json
 data/faces/*
 !data/faces/.gitkeep
+
+# PyInstaller
+*.spec
+build/
+dist/
+CORE-Node_new.exe
+_update_bastet.bat
