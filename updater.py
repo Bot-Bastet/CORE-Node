@@ -13,13 +13,23 @@ import tkinter.messagebox as messagebox
 from pathlib import Path
 
 GITHUB_REPO = "Bot-Bastet/CORE-Node"
-CURRENT_VERSION_FILE = Path(__file__).parent / "version.txt"
+
+
+def get_version_file_path() -> Path:
+    """Récupérer le chemin de version.txt."""
+    if getattr(sys, 'frozen', False):
+        return Path(sys._MEIPASS) / "version.txt"
+    return Path(__file__).parent / "version.txt"
 
 
 def get_current_version() -> str:
     """Lire la version locale depuis version.txt."""
-    if CURRENT_VERSION_FILE.exists():
-        return CURRENT_VERSION_FILE.read_text().strip()
+    version_file = get_version_file_path()
+    if version_file.exists():
+        try:
+            return version_file.read_text(encoding='utf-8').strip()
+        except Exception:
+            pass
     return "v0.0.0"
 
 
@@ -112,14 +122,25 @@ def _download_and_restart(download_url: str, new_version: str):
 
         # Créer un script .bat qui remplace l'exe après la fermeture et relance
         bat_path = exe_path.parent / "_update_bastet.bat"
-        bat_content = f"""@echo off
+        
+        # En mode gelé, la version est packagée dans le nouvel exe, pas besoin de version.txt externe
+        if getattr(sys, 'frozen', False):
+            bat_content = f"""@echo off
 timeout /t 2 /nobreak > nul
 move /Y "{new_exe_path}" "{exe_path}"
-echo {new_version} > "{CURRENT_VERSION_FILE}"
 start "" "{exe_path}"
 del "%~f0"
 """
-        bat_path.write_text(bat_content)
+        else:
+            version_file = get_version_file_path()
+            bat_content = f"""@echo off
+timeout /t 2 /nobreak > nul
+move /Y "{new_exe_path}" "{exe_path}"
+echo {new_version} > "{version_file}"
+start "" "{exe_path}"
+del "%~f0"
+"""
+        bat_path.write_text(bat_content, encoding='utf-8')
         subprocess.Popen(["cmd.exe", "/c", str(bat_path)], creationflags=subprocess.CREATE_NO_WINDOW)
         sys.exit(0)
 

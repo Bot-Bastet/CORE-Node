@@ -39,12 +39,17 @@ jobs:
         shell: bash
         run: echo "VERSION=${GITHUB_REF_NAME}" >> $GITHUB_OUTPUT
 
+      - name: Update version.txt
+        shell: bash
+        run: echo "${{ steps.version.outputs.VERSION }}" > version.txt
+
       - name: Build .exe with PyInstaller
         run: |
           pyinstaller `
             --onefile `
             --windowed `
             --name "CORE-Node" `
+            --add-data "version.txt;." `
             --hidden-import "customtkinter" `
             --hidden-import "websockets" `
             --hidden-import "requests" `
