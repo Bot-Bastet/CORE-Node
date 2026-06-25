@@ -34,7 +34,7 @@ class GatewayClient:
             try:
                 self.app.add_log(f"Connexion à {url_to_use}...")
                 
-                async with websockets.connect(url_to_use, extra_headers=headers, ssl=use_ssl) as ws:
+                async with websockets.connect(url_to_use, additional_headers=headers, ssl=use_ssl) as ws:
                     self.websocket = ws
                     self.app.update_connection_status(True)
                     self.app.add_log("✅ Connecté au Gateway.")
