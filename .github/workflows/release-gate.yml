@@ -1,0 +1,133 @@
+# =============================================================================
+# Quality Gate — CORE-Node
+# =============================================================================
+# Bloque toute release GitHub si le code ne passe pas les contrôles qualité.
+# Aucun token tiers requis : tous les outils tournent en CLI sur le runner.
+#
+# Étape 1 : jscpd  → détection de code dupliqué (seuil 10 %)
+# Étape 2 : Semgrep → analyse statique de sécurité (règles communautaires)
+# Étape 3 : Trivy  → vulnérabilités dépendances + secrets hardcodés
+# =============================================================================
+
+name: Quality Gate
+
+on:
+  release:
+    types: [published, created]
+
+# Annule tout run en cours sur la même release si un nouveau est déclenché
+concurrency:
+  group: quality-gate-${{ github.event.release.tag_name }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  security-events: write  # Requis pour l'upload SARIF (GitHub Security tab)
+
+jobs:
+  # ===========================================================================
+  # ÉTAPE 1 — Détection de duplication & code mort
+  # ===========================================================================
+  duplication-check:
+    name: "🔍 Code Duplication (jscpd)"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout du code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js (requis pour jscpd)
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Installation de jscpd
+        run: npm install -g jscpd
+
+      - name: Analyse des duplications
+        # --threshold 10  → échoue si > 10 % de duplication
+        # --min-lines 5   → ignore les blocs de moins de 5 lignes
+        # --min-tokens 50 → ignore les petits fragments insignifiants
+        # --reporters console,text → rapport lisible dans les logs
+        run: |
+          jscpd . \
+            --threshold 10 \
+            --min-lines 5 \
+            --min-tokens 50 \
+            --reporters "console" \
+            --ignore "**/__pycache__/**,**/dist/**,**/build/**,**/.git/**,**/node_modules/**,**/*.wav,**/*.exe,**/*.spec"
+
+  # ===========================================================================
+  # ÉTAPE 2 — Analyse statique de sécurité (AppSec)
+  # ===========================================================================
+  semgrep-scan:
+    name: "🛡️ SAST Security Scan (Semgrep)"
+    needs: duplication-check  # Échec immédiat si duplication
+    runs-on: ubuntu-latest
+    # Conteneur officiel Semgrep — pas de login, pas de télémétrie
+    container:
+      image: semgrep/semgrep:latest
+    steps:
+      - name: Checkout du code
+        uses: actions/checkout@v4
+
+      - name: Scan Semgrep (règles communautaires)
+        # --config p/security-audit → couverture OWASP, injection, XSS, etc.
+        # --config p/owasp-top-ten  → Top 10 OWASP (complémentaire, sans doublon)
+        # --error                   → exit code 1 si des findings correspondent
+        # Aucun --severity          → toutes les sévérités sont remontées par les règles
+        # Aucun SEMGREP_APP_TOKEN   → mode 100 % local, zéro envoi externe
+        env:
+          SEMGREP_SEND_METRICS: "off"
+        run: |
+          semgrep scan \
+            --config p/security-audit \
+            --config p/owasp-top-ten \
+            --error \
+            --quiet \
+            .
+
+  # ===========================================================================
+  # ÉTAPE 3 — Scan de vulnérabilités & secrets (Trivy)
+  # ===========================================================================
+  trivy-scan:
+    name: "🔐 Vuln & Secrets Scan (Trivy)"
+    needs: semgrep-scan  # Échec immédiat si faille de sécurité
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout du code
+        uses: actions/checkout@v4
+
+      - name: Scan Trivy (filesystem + secrets)
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          # fs → scan du filesystem complet
+          scan-type: "fs"
+          scan-ref: "."
+          # vuln   → CVE dans les dépendances (requirements.txt)
+          # secret → clés API, tokens, mots de passe hardcodés
+          scanners: "vuln,secret"
+          # Uniquement HIGH et CRITICAL → bloquant
+          severity: "HIGH,CRITICAL"
+          # Exit code 1 si des findings → FAIL le job
+          exit-code: "1"
+          # Format tableau lisible dans les logs GitHub
+          format: "table"
+
+      # Lien vers le dashboard GitHub Security (optionnel, lecture seule)
+      - name: Génération du rapport SARIF (pour GitHub Security tab)
+        uses: aquasecurity/trivy-action@0.28.0
+        if: always()
+        with:
+          scan-type: "fs"
+          scan-ref: "."
+          scanners: "vuln,secret"
+          severity: "HIGH,CRITICAL"
+          exit-code: "0"  # Ne fail pas, c'est juste pour le rapport
+          format: "sarif"
+          output: "trivy-results.sarif"
+
+      - name: Upload du rapport SARIF
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: "trivy-results.sarif"
