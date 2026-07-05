@@ -64,14 +64,14 @@ jobs:
           pyinstaller --noconfirm --onedir --windowed --add-data "version.txt;." --collect-all customtkinter --collect-all ultralytics --name "CORE-Node" main.py
           
       - name: Archive Release
-        uses: thedoctor0/zip-release@7fddfddd82b6e0b7405c6d326f345b596d13bd6c # 0.7.5
+        uses: thedoctor0/zip-release@7fddfdd07cadb5b8c6c0dbcdcec17f8cd7784b80 # 0.7.5
         with:
           type: 'zip'
           filename: 'CORE-Node-Windows.zip'
           directory: 'dist/CORE-Node'
           
       - name: Upload Build Artifact
-        uses: actions/upload-artifact@4cec3d8aa50af19056345d82084771239cd66f54 # v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: CORE-Node-Release
           path: dist/CORE-Node/CORE-Node-Windows.zip
@@ -87,7 +87,7 @@ jobs:
       
     steps:
       - name: Download Build Artifact
-        uses: actions/download-artifact@cc2033857508496464834863b9fc9875e53301a5 # v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           name: CORE-Node-Release
           path: ./release-asset
