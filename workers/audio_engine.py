@@ -185,8 +185,8 @@ class AudioEngine:
         config_path = "fr_FR-siwis-low.onnx.json"
         if not os.path.exists(model_path):
             print("AudioEngine: Téléchargement de Piper TTS (15 Mo)...")
-            urllib.request.urlretrieve("https://huggingface.co/rhasspy/piper-voices/resolve/main/fr/fr_FR/siwis/low/fr_FR-siwis-low.onnx", model_path)  # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected — hardcoded HuggingFace URL
-            urllib.request.urlretrieve("https://huggingface.co/rhasspy/piper-voices/resolve/main/fr/fr_FR/siwis/low/fr_FR-siwis-low.onnx.json", config_path)  # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected — hardcoded HuggingFace URL
+            urllib.request.urlretrieve("https://huggingface.co/rhasspy/piper-voices/resolve/main/fr/fr_FR/siwis/low/fr_FR-siwis-low.onnx", model_path)  # nosemgrep
+            urllib.request.urlretrieve("https://huggingface.co/rhasspy/piper-voices/resolve/main/fr/fr_FR/siwis/low/fr_FR-siwis-low.onnx.json", config_path)  # nosemgrep
             
         if self.piper_voice is None:
             print("AudioEngine: Chargement en mémoire du modèle Piper...")

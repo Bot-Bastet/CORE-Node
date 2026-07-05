@@ -53,8 +53,9 @@ jobs:
 
       - name: Update version.txt
         shell: bash
+        env:
+          VERSION_TAG: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || 'latest' }}
         run: |
-          VERSION_TAG="${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || 'latest' }}"
           echo "$VERSION_TAG" > version.txt
           
       - name: Build with PyInstaller

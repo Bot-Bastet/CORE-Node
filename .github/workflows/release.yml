@@ -153,7 +153,7 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
       
       - name: Scan Trivy
-        uses: aquasecurity/trivy-action@915b19bbe73b92a6cf82a1bc12b087c9a19a5fe2 # 0.28.0
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           scan-type: "fs"
           scan-ref: "."
@@ -226,7 +226,9 @@ jobs:
 
       - name: Update version.txt
         shell: bash
-        run: echo "${{ steps.version.outputs.VERSION }}" > version.txt
+        env:
+          VERSION: ${{ steps.version.outputs.VERSION }}
+        run: echo "$VERSION" > version.txt
 
       - name: Build .exe with PyInstaller
         run: |
@@ -251,8 +253,11 @@ jobs:
             main.py
 
       - name: Rename output
+        shell: bash
+        env:
+          VERSION: ${{ steps.version.outputs.VERSION }}
         run: |
-          move dist\CORE-Node.exe dist\CORE-Node-${{ steps.version.outputs.VERSION }}.exe
+          mv dist/CORE-Node.exe dist/CORE-Node-$VERSION.exe
 
       - name: Generate Release Body
         shell: bash
