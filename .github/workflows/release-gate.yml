@@ -33,10 +33,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout du code
-        uses: actions/checkout@11bd719001b34e40263f35031b2b6271c662862c # v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
 
       - name: Setup Node.js (requis pour jscpd)
-        uses: actions/setup-node@1d0ff469b7754c600122e23055972886f4435948 # v4
+        uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af # v4.1.0
         with:
           node-version: "20"
 
@@ -68,7 +68,7 @@ jobs:
       image: semgrep/semgrep:1.114.0
     steps:
       - name: Checkout du code
-        uses: actions/checkout@11bd719001b34e40263f35031b2b6271c662862c # v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
 
       - name: Scan Semgrep (règles communautaires)
         # --config p/security-audit → couverture OWASP, injection, XSS, etc.
@@ -95,10 +95,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout du code
-        uses: actions/checkout@11bd719001b34e40263f35031b2b6271c662862c # v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
 
       - name: Scan Trivy (filesystem + secrets)
-        uses: aquasecurity/trivy-action@915b19fb42fc5822e118991206c406c11b06c278 # 0.28.0
+        uses: aquasecurity/trivy-action@915b19bbe73b92a6cf82a1bc12b087c9a19a5fe2 # 0.28.0
         with:
           # fs → scan du filesystem complet
           scan-type: "fs"
@@ -115,7 +115,7 @@ jobs:
 
       # Lien vers le dashboard GitHub Security (optionnel, lecture seule)
       - name: Génération du rapport SARIF (pour GitHub Security tab)
-        uses: aquasecurity/trivy-action@915b19fb42fc5822e118991206c406c11b06c278 # 0.28.0
+        uses: aquasecurity/trivy-action@915b19bbe73b92a6cf82a1bc12b087c9a19a5fe2 # 0.28.0
         if: always()
         with:
           scan-type: "fs"
@@ -127,7 +127,7 @@ jobs:
           output: "trivy-results.sarif"
 
       - name: Upload du rapport SARIF
-        uses: github/codeql-action/upload-sarif@6bb031a690e0c900eaf1185966ca0b27b3b7545b # v3
+        uses: github/codeql-action/upload-sarif@294a9d92911152fe08befb9ec03e240add280cb3 # v3.26.8
         if: always()
         with:
           sarif_file: "trivy-results.sarif"
