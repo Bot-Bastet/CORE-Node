@@ -12,10 +12,10 @@ jobs:
     name: Lint Code
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11bd719001b34e40263f35031b2b6271c662862c # v4
       
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@42375524e432c748c1054dc257321598ce366bf9 # v5
         with:
           python-version: '3.10'
           cache: 'pip'
@@ -36,10 +36,10 @@ jobs:
     runs-on: windows-latest
     
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11bd719001b34e40263f35031b2b6271c662862c # v4
       
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@42375524e432c748c1054dc257321598ce366bf9 # v5
         with:
           python-version: '3.10'
           cache: 'pip'
@@ -64,14 +64,14 @@ jobs:
           pyinstaller --noconfirm --onedir --windowed --add-data "version.txt;." --collect-all customtkinter --collect-all ultralytics --name "CORE-Node" main.py
           
       - name: Archive Release
-        uses: thedoctor0/zip-release@0.7.5
+        uses: thedoctor0/zip-release@7fddfddd82b6e0b7405c6d326f345b596d13bd6c # 0.7.5
         with:
           type: 'zip'
           filename: 'CORE-Node-Windows.zip'
           directory: 'dist/CORE-Node'
           
       - name: Upload Build Artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@4cec3d8aa50af19056345d82084771239cd66f54 # v4
         with:
           name: CORE-Node-Release
           path: dist/CORE-Node/CORE-Node-Windows.zip
@@ -87,13 +87,13 @@ jobs:
       
     steps:
       - name: Download Build Artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@cc2033857508496464834863b9fc9875e53301a5 # v4
         with:
           name: CORE-Node-Release
           path: ./release-asset
           
       - name: Create or Update Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@01570a1f39cb165f1295980062a4d33a7587ef7d # v2
         with:
           tag_name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || 'latest' }}
           name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || 'Latest Release' }}

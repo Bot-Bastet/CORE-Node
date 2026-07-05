@@ -13,10 +13,10 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd719001b34e40263f35031b2b6271c662862c # v4
 
       - name: Setup Python 3.11
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@42375524e432c748c1054dc257321598ce366bf9 # v5
         with:
           python-version: '3.11'
 
@@ -70,7 +70,7 @@ jobs:
           move dist\CORE-Node.exe dist\CORE-Node-${{ steps.version.outputs.VERSION }}.exe
 
       - name: Publish GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@01570a1f39cb165f1295980062a4d33a7587ef7d # v2
         with:
           name: "CORE-Node ${{ steps.version.outputs.VERSION }}"
           body: |

@@ -33,10 +33,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout du code
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd719001b34e40263f35031b2b6271c662862c # v4
 
       - name: Setup Node.js (requis pour jscpd)
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@1d0ff469b7754c600122e23055972886f4435948 # v4
         with:
           node-version: "20"
 
@@ -65,10 +65,10 @@ jobs:
     runs-on: ubuntu-latest
     # Conteneur officiel Semgrep — pas de login, pas de télémétrie
     container:
-      image: semgrep/semgrep:latest
+      image: semgrep/semgrep:1.114.0
     steps:
       - name: Checkout du code
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd719001b34e40263f35031b2b6271c662862c # v4
 
       - name: Scan Semgrep (règles communautaires)
         # --config p/security-audit → couverture OWASP, injection, XSS, etc.
@@ -95,10 +95,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout du code
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd719001b34e40263f35031b2b6271c662862c # v4
 
       - name: Scan Trivy (filesystem + secrets)
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@915b19fb42fc5822e118991206c406c11b06c278 # 0.28.0
         with:
           # fs → scan du filesystem complet
           scan-type: "fs"
@@ -115,7 +115,7 @@ jobs:
 
       # Lien vers le dashboard GitHub Security (optionnel, lecture seule)
       - name: Génération du rapport SARIF (pour GitHub Security tab)
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@915b19fb42fc5822e118991206c406c11b06c278 # 0.28.0
         if: always()
         with:
           scan-type: "fs"
@@ -127,7 +127,7 @@ jobs:
           output: "trivy-results.sarif"
 
       - name: Upload du rapport SARIF
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@6bb031a690e0c900eaf1185966ca0b27b3b7545b # v3
         if: always()
         with:
           sarif_file: "trivy-results.sarif"
