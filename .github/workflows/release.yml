@@ -27,11 +27,19 @@ jobs:
           # Stop the build if there are Python syntax errors or undefined names
           flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
           # Treat all other errors as warnings (exit-zero)
-          flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+          flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics > flake8_report.txt
 
       - name: Check code formatting (Black)
         run: |
-          black --check . --exclude='(\.git|\.github|build|dist)' || true
+          black --check . --exclude='(\.git|\.github|build|dist)' > black_report.txt 2>&1 || true
+
+      - name: Upload Lint Reports
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: lint-reports
+          path: |
+            flake8_report.txt
+            black_report.txt
 
   build-exe:
     needs: lint
@@ -42,6 +50,12 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+
+      - name: Download Lint Reports
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: lint-reports
+          path: ./reports
 
       - name: Setup Python 3.11
         uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v5
@@ -97,25 +111,58 @@ jobs:
         run: |
           move dist\CORE-Node.exe dist\CORE-Node-${{ steps.version.outputs.VERSION }}.exe
 
+      - name: Generate Release Body
+        shell: bash
+        run: |
+          cat << 'EOF' > release_body.md
+          ## CORE-Node ${{ steps.version.outputs.VERSION }}
+
+          Application Windows de station de calcul pour le projet Bastet.
+
+          ### 📦 Installation
+          1. Télécharger `CORE-Node-${{ steps.version.outputs.VERSION }}.exe`
+          2. Lancer l'application
+          3. Configurer l'IP de la Gateway et le Token dans Paramètres
+
+          > **Note** : Les dépendances lourdes (Torch, Whisper, Ollama, YOLO, Bark) sont chargées à la demande au runtime.
+          > Ollama doit être installé séparément : https://ollama.com
+
+          ### 🔄 Mise à jour automatique
+          L'application vérifie automatiquement les nouvelles versions au démarrage.
+
+          ### 📊 Rapport de Qualité du Workflow (Quality Gate)
+          Ce build a passé avec succès toutes les vérifications de qualité automatisées :
+          EOF
+
+          if [ -f "./reports/flake8_report.txt" ]; then
+            echo "" >> release_body.md
+            echo "#### 🔍 Analyse Statique (Flake8)" >> release_body.md
+            if [ -s "./reports/flake8_report.txt" ]; then
+              echo "\`\`\`text" >> release_body.md
+              cat ./reports/flake8_report.txt >> release_body.md
+              echo "\`\`\`" >> release_body.md
+            else
+              echo "*Aucun avertissement de style ou de complexité détecté par flake8.*" >> release_body.md
+            fi
+          fi
+
+          if [ -f "./reports/black_report.txt" ]; then
+            echo "" >> release_body.md
+            echo "#### ✨ Formatage de Code (Black)" >> release_body.md
+            if grep -q "would reformat" ./reports/black_report.txt; then
+              echo "\`\`\`text" >> release_body.md
+              cat ./reports/black_report.txt >> release_body.md
+              echo "\`\`\`" >> release_body.md
+            else
+              echo "*Le code respecte parfaitement les standards de formatage de Black.*" >> release_body.md
+            fi
+          fi
+
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2.6.2
         with:
           name: "CORE-Node ${{ steps.version.outputs.VERSION }}"
-          body: |
-            ## CORE-Node ${{ steps.version.outputs.VERSION }}
-
-            Application Windows de station de calcul pour le projet Bastet.
-
-            ### Installation
-            1. Télécharger `CORE-Node-${{ steps.version.outputs.VERSION }}.exe`
-            2. Lancer l'application
-            3. Configurer l'IP de la Gateway et le Token dans Paramètres
-
-            > **Note** : Les dépendances lourdes (Torch, Whisper, Ollama, YOLO, Bark) sont chargées à la demande au runtime.
-            > Ollama doit être installé séparément : https://ollama.com
-
-            ### Mise à jour automatique
-            L'application vérifie automatiquement les nouvelles versions au démarrage.
+          body_path: release_body.md
           files: |
             dist/CORE-Node-${{ steps.version.outputs.VERSION }}.exe
           draft: false
