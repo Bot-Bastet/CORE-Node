@@ -8,8 +8,13 @@ then
     exit 1
 fi
 
-brew install cmake portaudio
+# Installer cmake, portaudio et dlib pour faciliter la compilation python
+brew install cmake portaudio dlib
 echo "Dépendances système installées avec succès !"
+
+# Exporter les chemins de recherche Homebrew pour la compilation de dlib/face_recognition
+export C_INCLUDE_PATH="/opt/homebrew/include:$C_INCLUDE_PATH"
+export LIBRARY_PATH="/opt/homebrew/lib:$LIBRARY_PATH"
 
 echo "Installation des dépendances Python..."
 pip install -r requirements.txt
