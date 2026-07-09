@@ -29,15 +29,18 @@ class VisionEngine:
     ):
         self.gateway_url = gateway_url
         self.rtsp_url = rtsp_url
+        self.token = ""
 
         self.yolo_enabled = False
         self.yolo_model = None
         self.current_yolo_model_name = ""
+        self.yolo_model_name_to_load = ""
 
         self.face_rec_enabled = False
         self.known_face_encodings = []
         self.known_face_names = []
 
+        self.show_window = False
         self.running = True
         self.thread = threading.Thread(target=self._process_loop, daemon=True)
         self.thread.start()
@@ -45,24 +48,8 @@ class VisionEngine:
     def enable_yolo(self, state: bool, model_name="yolov8n.pt"):
         self.yolo_enabled = state
         print(f"VisionEngine: YOLOv8 {'activé' if state else 'désactivé'}")
-
         if state:
-            # Charger le modèle uniquement si différent ou non chargé
-            if self.current_yolo_model_name != model_name or self.yolo_model is None:
-                print(f"VisionEngine: Chargement de {model_name}...")
-                from ultralytics import YOLO
-                import torch
-
-                self.yolo_model = YOLO(model_name)
-
-                # Forcer l'utilisation de CUDA si disponible
-                if torch.cuda.is_available():
-                    self.yolo_model.to("cuda")
-                    print("VisionEngine: YOLO configuré sur GPU (CUDA).")
-                else:
-                    print("VisionEngine: YOLO configuré sur CPU.")
-
-                self.current_yolo_model_name = model_name
+            self.yolo_model_name_to_load = model_name
 
     def enable_face_rec(self, state: bool):
         if state and not FACE_REC_AVAILABLE:
@@ -80,7 +67,7 @@ class VisionEngine:
 
     def _sync_faces(self):
         print("VisionEngine: Téléchargement des visages depuis la Gateway...")
-        headers = {"X-API-Token": "your-api-token-here"}
+        headers = {"X-API-Token": self.token}
 
         try:
             r = requests.get(f"{self.gateway_url}/faces", headers=headers, timeout=5)
@@ -131,6 +118,24 @@ class VisionEngine:
         window_name = "Vision CORE-Node"
 
         while self.running:
+            # Charger YOLO dans le thread de traitement si demandé
+            if self.yolo_enabled and (self.yolo_model is None or self.current_yolo_model_name != self.yolo_model_name_to_load):
+                model_name = self.yolo_model_name_to_load
+                print(f"VisionEngine: Chargement de {model_name} dans le thread de traitement...")
+                from ultralytics import YOLO
+                import torch
+
+                try:
+                    self.yolo_model = YOLO(model_name)
+                    if torch.cuda.is_available():
+                        self.yolo_model.to("cuda")
+                        print("VisionEngine: YOLO configuré sur GPU (CUDA).")
+                    else:
+                        print("VisionEngine: YOLO configuré sur CPU.")
+                    self.current_yolo_model_name = model_name
+                except Exception as e:
+                    print(f"VisionEngine: Erreur lors du chargement de YOLO: {e}")
+
             # Si aucune fonctionnalité visuelle n'est activée, on dort et on libère la caméra
             if not self.yolo_enabled and not self.face_rec_enabled:
                 if cap is not None:
@@ -144,11 +149,17 @@ class VisionEngine:
                 continue
 
             if cap is None or not cap.isOpened():
-                print("VisionEngine: Connexion à la webcam locale...")
-                cap = cv2.VideoCapture(0)
+                source = self.rtsp_url
+                is_rtsp = source.startswith("rtsp://")
+                print(f"VisionEngine: Connexion à la source vidéo ({source})...")
+                cap = cv2.VideoCapture(source)
+                if not cap.isOpened() and is_rtsp:
+                    print("VisionEngine: Échec RTSP, repli sur la webcam locale (0)...")
+                    cap = cv2.VideoCapture(0)
+
                 if not cap.isOpened():
                     print(
-                        "VisionEngine: Impossible d'ouvrir la webcam locale. Nouvelle tentative dans 2s..."
+                        "VisionEngine: Impossible d'ouvrir la source vidéo. Nouvelle tentative dans 2s..."
                     )
                     time.sleep(2)
                     continue
@@ -215,11 +226,17 @@ class VisionEngine:
                         1,
                     )
 
-            # Affichage de la fenêtre
-            cv2.imshow(window_name, frame)
-
-            if cv2.waitKey(1) & 0xFF == ord("q"):
-                break
+            # Affichage conditionnel de la fenêtre
+            if self.show_window:
+                cv2.imshow(window_name, frame)
+                if cv2.waitKey(1) & 0xFF == ord("q"):
+                    break
+            else:
+                try:
+                    cv2.destroyWindow(window_name)
+                except Exception:
+                    pass
+                time.sleep(0.03) # limiter la conso CPU si pas affiché
 
     def stop(self):
         self.running = False

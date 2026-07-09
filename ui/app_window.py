@@ -20,9 +20,13 @@ class CoreNodeApp(ctk.CTk):
 
         self.gateway_url = "wss://ha.arthonetwork.fr:44888/ws/node"
         self.gateway_token = "bst_c9f28d3a1e4b85c7f0d4b9a2e6f1c3d5"
+        if self.vision_engine:
+            self.vision_engine.token = self.gateway_token
         self.node_coordinates = "Node-Salon"
         self.model_running = False
         self.gateway_client = None
+
+        self.protocol("WM_DELETE_WINDOW", self.on_closing)
 
         # Layout configuration
         self.grid_columnconfigure(1, weight=1)  # Main frame s'étend
@@ -109,13 +113,22 @@ class CoreNodeApp(ctk.CTk):
         )
         self.face_checkbox.grid(row=2, column=0, sticky="w", pady=5)
 
+        self.show_video_var = ctk.BooleanVar(value=False)
+        self.show_video_checkbox = ctk.CTkCheckBox(
+            self.main_frame,
+            text="Afficher le retour vidéo (Fenêtre)",
+            variable=self.show_video_var,
+            command=self.on_show_video_toggle,
+        )
+        self.show_video_checkbox.grid(row=3, column=0, sticky="w", pady=5)
+
         # Section Audio
         self.audio_label = ctk.CTkLabel(
             self.main_frame,
             text="Module Audio (Offloading)",
             font=ctk.CTkFont(size=16, weight="bold"),
         )
-        self.audio_label.grid(row=3, column=0, sticky="w", pady=(20, 10))
+        self.audio_label.grid(row=4, column=0, sticky="w", pady=(20, 10))
 
         self.audio_var = ctk.BooleanVar(value=False)
         self.audio_checkbox = ctk.CTkCheckBox(
@@ -129,10 +142,10 @@ class CoreNodeApp(ctk.CTk):
                 self.audio_var,
             ),
         )
-        self.audio_checkbox.grid(row=4, column=0, sticky="w", pady=5)
+        self.audio_checkbox.grid(row=5, column=0, sticky="w", pady=5)
 
         self.audio_models_frame = ctk.CTkFrame(self.main_frame, fg_color="transparent")
-        self.audio_models_frame.grid(row=5, column=0, sticky="w", pady=5, padx=20)
+        self.audio_models_frame.grid(row=6, column=0, sticky="w", pady=5, padx=20)
 
         ctk.CTkLabel(self.audio_models_frame, text="Modèle STT :").grid(
             row=0, column=0, sticky="w", padx=5
@@ -177,7 +190,7 @@ class CoreNodeApp(ctk.CTk):
         self.test_audio_frame = ctk.CTkFrame(
             self.main_frame, border_width=1, border_color="#2d2d3d"
         )
-        self.test_audio_frame.grid(row=6, column=0, sticky="ew", pady=(15, 5))
+        self.test_audio_frame.grid(row=7, column=0, sticky="ew", pady=(15, 5))
 
         self.test_title = ctk.CTkLabel(
             self.test_audio_frame,
@@ -214,10 +227,10 @@ class CoreNodeApp(ctk.CTk):
             text="Modèle LLM (100% Local via Ollama)",
             font=ctk.CTkFont(size=16, weight="bold"),
         )
-        self.llm_label.grid(row=7, column=0, sticky="w", pady=(20, 10))
+        self.llm_label.grid(row=8, column=0, sticky="w", pady=(20, 10))
 
         self.llm_frame = ctk.CTkFrame(self.main_frame, fg_color="transparent")
-        self.llm_frame.grid(row=8, column=0, sticky="ew")
+        self.llm_frame.grid(row=9, column=0, sticky="ew")
 
         self.llm_optionmenu = ctk.CTkOptionMenu(
             self.llm_frame,
@@ -247,7 +260,7 @@ class CoreNodeApp(ctk.CTk):
         self.model_status_label = ctk.CTkLabel(
             self.main_frame, text="Statut : Aucun modèle démarré", text_color="gray"
         )
-        self.model_status_label.grid(row=9, column=0, sticky="w", pady=(5, 15))
+        self.model_status_label.grid(row=10, column=0, sticky="w", pady=(5, 15))
 
         # Installer un nouveau modèle
         self.install_label = ctk.CTkLabel(
@@ -255,10 +268,10 @@ class CoreNodeApp(ctk.CTk):
             text="Installer un nouveau modèle (ex: mistral:latest) :",
             font=ctk.CTkFont(size=12),
         )
-        self.install_label.grid(row=10, column=0, sticky="w")
+        self.install_label.grid(row=11, column=0, sticky="w")
 
         self.install_frame = ctk.CTkFrame(self.main_frame, fg_color="transparent")
-        self.install_frame.grid(row=11, column=0, sticky="ew", pady=5)
+        self.install_frame.grid(row=12, column=0, sticky="ew", pady=5)
 
         self.install_entry = ctk.CTkEntry(
             self.install_frame, placeholder_text="hermes:latest", width=250
@@ -397,6 +410,12 @@ class CoreNodeApp(ctk.CTk):
         # Lancement automatique du modèle sélectionné au démarrage
         if models and not self.model_running:
             self.after(500, self.toggle_model)
+
+    def on_show_video_toggle(self):
+        val = self.show_video_var.get()
+        self.add_log(f"⚙️ Affichage vidéo {'activé' if val else 'désactivé'}.")
+        if self.vision_engine:
+            self.vision_engine.show_window = val
 
     def on_stt_changed(self, choice):
         self.add_log(
@@ -738,6 +757,25 @@ class CoreNodeApp(ctk.CTk):
                         state, self.process_audio_pipeline
                     )
 
+            # Gérer le flux vidéo sur demande (On-Demand) pour YOLO / FaceRec
+            if feature in ["yolo", "face_rec"]:
+                any_vision = self.yolo_var.get() or self.face_var.get()
+                if any_vision:
+                    self.add_log("📡 Envoi d'une demande de flux caméra à la Gateway...")
+                    if self.gateway_client:
+                        self.gateway_client.send_message_threadsafe({
+                            "type": "request_camera",
+                            "camera": 1,
+                            "v_slam": False
+                        })
+                else:
+                    self.add_log("📡 Libération du flux caméra auprès de la Gateway...")
+                    if self.gateway_client:
+                        self.gateway_client.send_message_threadsafe({
+                            "type": "release_camera",
+                            "camera": 1
+                        })
+
     def toggle_recording(self):
         if not self.audio_engine:
             self.add_log("Erreur: Moteur audio non initialisé.")
@@ -832,3 +870,29 @@ class CoreNodeApp(ctk.CTk):
                     hover_color="#2563eb",
                 ),
             )
+
+    def on_closing(self):
+        self.add_log("🔌 Fermeture de l'application. Libération de toutes les fonctionnalités...")
+        if self.gateway_client:
+            # Désactiver toutes les fonctionnalités connues
+            for feat in ["yolo", "face_rec", "audio", "stt", "tts", "llm"]:
+                try:
+                    self.gateway_client.send_feature_request(feat, False)
+                except Exception:
+                    pass
+            # Donner un bref moment pour que les paquets soient envoyés via WebSocket
+            import time
+            time.sleep(0.4)
+
+        if self.vision_engine:
+            try:
+                self.vision_engine.stop()
+            except Exception:
+                pass
+        if self.audio_engine:
+            try:
+                self.audio_engine.stop()
+            except Exception:
+                pass
+
+        self.destroy()
