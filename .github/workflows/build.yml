@@ -60,7 +60,7 @@ jobs:
           
       - name: Build with PyInstaller
         run: |
-          pyinstaller --noconfirm --onedir --windowed --add-data "version.txt;." --collect-all customtkinter --collect-all ultralytics --name "CORE-Node" main.py
+          pyinstaller --noconfirm --onedir --windowed --add-data "version.txt;." --collect-all customtkinter --collect-all ultralytics --collect-all setuptools --name "CORE-Node" main.py
           
       - name: Archive Release
         uses: thedoctor0/zip-release@7fddfdd07cadb5b8c6c0dbcdcec17f8cd7784b80 # 0.7.5
