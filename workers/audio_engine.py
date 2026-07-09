@@ -8,9 +8,14 @@ import subprocess
 
 def play_audio(wav_path: str):
     if platform.system() == "Windows":
-        os.system(
-            f"powershell -c \"(New-Object Media.SoundPlayer '{wav_path}').PlaySync()\""
-        )
+        subprocess.run(
+            [
+                "powershell",
+                "-c",
+                f"(New-Object Media.SoundPlayer '{wav_path}').PlaySync()",
+            ],
+            shell=False,
+        )  # nosemgrep
     elif platform.system() == "Darwin":
         subprocess.run(["afplay", wav_path])
     else:
