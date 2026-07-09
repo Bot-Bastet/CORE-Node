@@ -259,24 +259,140 @@ jobs:
         run: |
           mv dist/CORE-Node.exe dist/CORE-Node-$VERSION.exe
 
+      - name: Upload Windows Artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: win-artifact
+          path: dist/CORE-Node-${{ steps.version.outputs.VERSION }}.exe
+          retention-days: 1
+
+  build-mac:
+    needs: [lint, duplication, security, vulnerability]
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+
+      - name: Setup Python 3.11
+        uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v5
+        with:
+          python-version: '3.11'
+
+      - name: Install System Dependencies
+        run: |
+          brew install portaudio
+
+      - name: Install Python Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pyinstaller
+          pip install customtkinter
+          pip install requests
+          pip install websockets
+          pip install pillow
+          pip install sounddevice
+          pip install scipy
+          pip install numpy
+          pip install pyttsx3
+          pip install opencv-python-headless
+
+      - name: Extract version
+        id: version
+        shell: bash
+        run: echo "VERSION=${GITHUB_REF_NAME}" >> $GITHUB_OUTPUT
+
+      - name: Update version.txt
+        shell: bash
+        env:
+          VERSION: ${{ steps.version.outputs.VERSION }}
+        run: echo "$VERSION" > version.txt
+
+      - name: Build macOS App with PyInstaller
+        run: |
+          pyinstaller \
+            --onefile \
+            --windowed \
+            --name "CORE-Node" \
+            --add-data "version.txt:." \
+            --hidden-import "customtkinter" \
+            --hidden-import "websockets" \
+            --hidden-import "requests" \
+            --hidden-import "sounddevice" \
+            --hidden-import "scipy" \
+            --hidden-import "scipy.io.wavfile" \
+            --hidden-import "numpy" \
+            --hidden-import "pyttsx3" \
+            --hidden-import "pyttsx3.drivers" \
+            --hidden-import "pyttsx3.drivers.nsss" \
+            --hidden-import "cv2" \
+            --collect-all "customtkinter" \
+            --collect-all "sounddevice" \
+            main.py
+
+      - name: Zip macOS App Bundle
+        run: |
+          cd dist
+          zip -r ../CORE-Node-macOS.zip CORE-Node.app
+
+      - name: Rename Zip Archive
+        env:
+          VERSION: ${{ steps.version.outputs.VERSION }}
+        run: |
+          mv CORE-Node-macOS.zip CORE-Node-$VERSION-macOS.zip
+
+      - name: Upload macOS Artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: mac-artifact
+          path: CORE-Node-*-macOS.zip
+          retention-days: 1
+
+  publish-release:
+    needs: [build-exe, build-mac, lint, duplication, security, vulnerability]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+
+      - name: Download Windows Artifact
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: win-artifact
+          path: ./dist
+
+      - name: Download macOS Artifact
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: mac-artifact
+          path: ./dist
+
+      - name: Extract version
+        id: version
+        shell: bash
+        run: echo "VERSION=${GITHUB_REF_NAME}" >> $GITHUB_OUTPUT
+
       - name: Generate Release Body
         shell: bash
         run: |
           cat << 'EOF' > release_body.md
           ## CORE-Node ${{ steps.version.outputs.VERSION }}
 
-          Application Windows de station de calcul pour le projet Bastet.
+          Application station de calcul pour le projet Bastet.
 
-          ### 📦 Installation
-          1. Télécharger `CORE-Node-${{ steps.version.outputs.VERSION }}.exe`
-          2. Lancer l'application
-          3. Configurer l'IP de la Gateway et le Token dans Paramètres
+          ### 📦 Téléchargements
+          * 🪟 Windows : Télécharger `CORE-Node-${{ steps.version.outputs.VERSION }}.exe`
+          * 🍎 macOS (Apple Silicon M1/M2/M3/M4) : Télécharger `CORE-Node-${{ steps.version.outputs.VERSION }}-macOS.zip` (décompresser et lancer `CORE-Node.app`)
+
+          ### 🔧 Notes d'utilisation macOS (Gatekeeper)
+          Comme l'application n'est pas signée avec un certificat développeur payant Apple :
+          1. Téléchargez et décompressez le fichier `.zip`
+          2. Faites un **clic droit** sur `CORE-Node.app` et sélectionnez **Ouvrir**
+          3. Cliquez sur **Ouvrir** dans la boîte de dialogue de confirmation
 
           > **Note** : Les dépendances lourdes (Torch, Whisper, Ollama, YOLO, Bark) sont chargées à la demande au runtime.
           > Ollama doit être installé séparément : https://ollama.com
-
-          ### 🔄 Mise à jour automatique
-          L'application vérifie automatiquement les nouvelles versions au démarrage.
 
           ### 📊 Rapport de Qualité & Sécurité (Quality Gate)
           | Test | Statut | Métrique | Limite |
@@ -296,5 +412,6 @@ jobs:
           body_path: release_body.md
           files: |
             dist/CORE-Node-${{ steps.version.outputs.VERSION }}.exe
+            dist/CORE-Node-${{ steps.version.outputs.VERSION }}-macOS.zip
           draft: false
           prerelease: ${{ contains(steps.version.outputs.VERSION, '-beta') || contains(steps.version.outputs.VERSION, '-rc') }}
