@@ -12,5 +12,5 @@ pyttsx3==2.90
 torch
 transformers
 piper-tts
-setuptools
+setuptools<82.0.0
 lapx>=0.5.2
