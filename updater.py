@@ -2,9 +2,8 @@
 Auto-updater pour CORE-Node (Windows .exe).
 Vérifie GitHub Releases et propose la mise à jour au démarrage.
 """
-import os
+
 import sys
-import json
 import threading
 import subprocess
 import requests
@@ -17,7 +16,7 @@ GITHUB_REPO = "Bot-Bastet/CORE-Node"
 
 def get_version_file_path() -> Path:
     """Récupérer le chemin de version.txt."""
-    if getattr(sys, 'frozen', False):
+    if getattr(sys, "frozen", False):
         return Path(sys._MEIPASS) / "version.txt"
     return Path(__file__).parent / "version.txt"
 
@@ -27,7 +26,7 @@ def get_current_version() -> str:
     version_file = get_version_file_path()
     if version_file.exists():
         try:
-            return version_file.read_text(encoding='utf-8').strip()
+            return version_file.read_text(encoding="utf-8").strip()
         except Exception:
             pass
     return "v0.0.0"
@@ -37,7 +36,9 @@ def get_latest_release() -> dict | None:
     """Interroger l'API GitHub Releases."""
     try:
         url = f"https://api.github.com/repos/{GITHUB_REPO}/releases/latest"
-        resp = requests.get(url, timeout=5, headers={"Accept": "application/vnd.github+json"})
+        resp = requests.get(
+            url, timeout=5, headers={"Accept": "application/vnd.github+json"}
+        )
         if resp.status_code == 200:
             return resp.json()
     except Exception:
@@ -90,7 +91,7 @@ def check_and_update(on_update_done=None):
             f"Version actuelle : {current}\n"
             f"Nouvelle version : {latest_tag}\n\n"
             f"Télécharger et redémarrer maintenant ?",
-            icon="info"
+            icon="info",
         )
         if answer:
             _download_and_restart(exe_asset["browser_download_url"], latest_tag)
@@ -99,7 +100,9 @@ def check_and_update(on_update_done=None):
     try:
         root = tk._default_root
         if root:
-            root.after(2000, ask_user)  # 2s après le lancement pour laisser l'UI s'initialiser
+            root.after(
+                2000, ask_user
+            )  # 2s après le lancement pour laisser l'UI s'initialiser
     except Exception:
         pass
 
@@ -112,7 +115,6 @@ def _download_and_restart(download_url: str, new_version: str):
 
         # Télécharger la nouvelle version
         resp = requests.get(download_url, stream=True, timeout=60)
-        total = int(resp.headers.get("content-length", 0))
         downloaded = 0
 
         with open(new_exe_path, "wb") as f:
@@ -122,9 +124,9 @@ def _download_and_restart(download_url: str, new_version: str):
 
         # Créer un script .bat qui remplace l'exe après la fermeture et relance
         bat_path = exe_path.parent / "_update_bastet.bat"
-        
+
         # En mode gelé, la version est packagée dans le nouvel exe, pas besoin de version.txt externe
-        if getattr(sys, 'frozen', False):
+        if getattr(sys, "frozen", False):
             bat_content = f"""@echo off
 timeout /t 2 /nobreak > nul
 move /Y "{new_exe_path}" "{exe_path}"
@@ -140,8 +142,10 @@ echo {new_version} > "{version_file}"
 start "" "{exe_path}"
 del "%~f0"
 """
-        bat_path.write_text(bat_content, encoding='utf-8')
-        subprocess.Popen(["cmd.exe", "/c", str(bat_path)], creationflags=subprocess.CREATE_NO_WINDOW)
+        bat_path.write_text(bat_content, encoding="utf-8")
+        subprocess.Popen(
+            ["cmd.exe", "/c", str(bat_path)], creationflags=subprocess.CREATE_NO_WINDOW
+        )
         sys.exit(0)
 
     except Exception as e:
@@ -149,6 +153,7 @@ del "%~f0"
 
 
 def start_update_check_thread():
-    """Lance la vérification de mise à jour en arrière-plan."""
-    t = threading.Thread(target=check_and_update, daemon=True)
-    t.start()
+    """Lance la vérification de mise à jour en arrière-plan (Windows uniquement)."""
+    if sys.platform.startswith("win"):
+        t = threading.Thread(target=check_and_update, daemon=True)
+        t.start()

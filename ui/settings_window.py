@@ -1,4 +1,5 @@
 """Settings window for Bastet CORE-Node."""
+
 import customtkinter as ctk
 
 
@@ -7,7 +8,7 @@ class SettingsWindow(ctk.CTkToplevel):
         super().__init__(parent)
         self.title("Paramètres")
         self.geometry("400x400")
-        self.attributes('-topmost', True)
+        self.attributes("-topmost", True)
 
         # Gateway IP
         self.ip_label = ctk.CTkLabel(self, text="Adresse API Gateway (WS):")
@@ -31,7 +32,9 @@ class SettingsWindow(ctk.CTkToplevel):
         self.coord_entry.pack(pady=5, padx=20)
 
         # Save Button
-        self.save_btn = ctk.CTkButton(self, text="Enregistrer", command=self.save_settings)
+        self.save_btn = ctk.CTkButton(
+            self, text="Enregistrer", command=self.save_settings
+        )
         self.save_btn.pack(pady=20)
 
         self.parent_app = parent
