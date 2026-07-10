@@ -762,20 +762,19 @@ class CoreNodeApp(ctk.CTk):
             if feature in ["yolo", "face_rec"]:
                 any_vision = self.yolo_var.get() or self.face_var.get()
                 if any_vision:
-                    self.add_log("📡 Envoi d'une demande de flux caméra à la Gateway...")
+                    self.add_log(
+                        "📡 Envoi d'une demande de flux caméra à la Gateway..."
+                    )
                     if self.gateway_client:
-                        self.gateway_client.send_message_threadsafe({
-                            "type": "request_camera",
-                            "camera": 1,
-                            "v_slam": False
-                        })
+                        self.gateway_client.send_message_threadsafe(
+                            {"type": "request_camera", "camera": 1, "v_slam": False}
+                        )
                 else:
                     self.add_log("📡 Libération du flux caméra auprès de la Gateway...")
                     if self.gateway_client:
-                        self.gateway_client.send_message_threadsafe({
-                            "type": "release_camera",
-                            "camera": 1
-                        })
+                        self.gateway_client.send_message_threadsafe(
+                            {"type": "release_camera", "camera": 1}
+                        )
 
     def toggle_recording(self):
         if not self.audio_engine:
@@ -873,7 +872,9 @@ class CoreNodeApp(ctk.CTk):
             )
 
     def on_closing(self):
-        self.add_log("🔌 Fermeture de l'application. Libération de toutes les fonctionnalités...")
+        self.add_log(
+            "🔌 Fermeture de l'application. Libération de toutes les fonctionnalités..."
+        )
         if self.gateway_client:
             # Désactiver toutes les fonctionnalités connues
             for feat in ["yolo", "face_rec", "audio", "stt", "tts", "llm"]:
@@ -883,6 +884,7 @@ class CoreNodeApp(ctk.CTk):
                     pass
             # Donner un bref moment pour que les paquets soient envoyés via WebSocket
             import time
+
             time.sleep(0.4)
 
         if self.vision_engine:

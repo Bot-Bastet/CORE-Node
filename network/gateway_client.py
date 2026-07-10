@@ -7,6 +7,7 @@ import urllib3
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
+
 def ws_url_to_rest(ws_url: str) -> str:
     """Convertit une URL WebSocket en URL REST de base."""
     url = ws_url.replace("wss://", "https://").replace("ws://", "http://")
@@ -39,15 +40,22 @@ class GatewayClient:
         url = f"{self._rest_base}{path}"
         try:
             headers = {"X-API-Token": self.app.gateway_token}
-            r = requests.post(url, json=payload, headers=headers,
-                              verify=self.app.verify_ssl, timeout=8)
+            r = requests.post(
+                url,
+                json=payload,
+                headers=headers,
+                verify=self.app.verify_ssl,
+                timeout=8,
+            )
             if r.status_code < 300:
                 try:
                     return r.json()
                 except Exception:
                     return {"status": "ok"}
             else:
-                self.app.add_log(f"⚠️ REST {path} → HTTP {r.status_code}: {r.text[:120]}")
+                self.app.add_log(
+                    f"⚠️ REST {path} → HTTP {r.status_code}: {r.text[:120]}"
+                )
                 return None
         except Exception as e:
             self.app.add_log(f"❌ REST {path} → {e}")
@@ -58,8 +66,9 @@ class GatewayClient:
         url = f"{self._rest_base}{path}"
         try:
             headers = {"X-API-Token": self.app.gateway_token}
-            r = requests.get(url, headers=headers,
-                             verify=self.app.verify_ssl, timeout=8)
+            r = requests.get(
+                url, headers=headers, verify=self.app.verify_ssl, timeout=8
+            )
             if r.status_code < 300:
                 return r.json()
             else:
@@ -78,6 +87,7 @@ class GatewayClient:
             if getattr(self.app, "verify_ssl", True):
                 try:
                     import certifi
+
                     ssl_context = ssl.create_default_context(cafile=certifi.where())
                 except ImportError:
                     ssl_context = ssl.create_default_context()
@@ -101,12 +111,18 @@ class GatewayClient:
             try:
                 parts = self.app.gateway_url.split("://")[-1].split("/")[0].split(":")
                 host = parts[0]
-                rest_proto = "https" if self.app.gateway_url.startswith("wss") else "http"
-                port = parts[1] if len(parts) > 1 else ("44888" if rest_proto == "https" else "80")
-                
+                rest_proto = (
+                    "https" if self.app.gateway_url.startswith("wss") else "http"
+                )
+                port = (
+                    parts[1]
+                    if len(parts) > 1
+                    else ("44888" if rest_proto == "https" else "80")
+                )
+
                 rest_url = f"{rest_proto}://{host}:{port}"
                 rtsp_url = f"rtsp://{host}:48554/robot/cam1"
-                
+
                 if self.app.vision_engine:
                     self.app.vision_engine.gateway_url = rest_url
                     self.app.vision_engine.rtsp_url = rtsp_url
@@ -116,11 +132,22 @@ class GatewayClient:
 
             try:
                 self.app.add_log(f"Connexion à {url_to_use}...")
-                async with websockets.connect(
-                    url_to_use,
-                    extra_headers={"X-API-Token": self.app.gateway_token},
-                    ssl=use_ssl,
-                ) as ws:
+                import inspect
+
+                try:
+                    sig = inspect.signature(websockets.connect)
+                    use_additional = "additional_headers" in sig.parameters
+                except Exception:
+                    use_additional = True
+
+                headers = {"X-API-Token": self.app.gateway_token}
+                kwargs = {}
+                if use_additional:
+                    kwargs["additional_headers"] = headers
+                else:
+                    kwargs["extra_headers"] = headers
+
+                async with websockets.connect(url_to_use, ssl=use_ssl, **kwargs) as ws:
                     self.websocket = ws
                     self.app.update_connection_status(True)
                     self.app.add_log("✅ Connecté à la Gateway.")
@@ -164,7 +191,7 @@ class GatewayClient:
                         prompt = data.get("text", "")
                         context = data.get("context", "")
                         self.app.add_log(f"📥 Chat reçu : '{prompt}'")
-                        self.app.add_gateway_log(f"👤 Humain (via robot) :\n\"{prompt}\"")
+                        self.app.add_gateway_log(f'👤 Humain (via robot) :\n"{prompt}"')
                         asyncio.create_task(self._process_chat(prompt, context))
 
                     elif msg_type == "request_camera":
@@ -182,16 +209,22 @@ class GatewayClient:
                     elif msg_type == "feature_request":
                         feature = data.get("feature")
                         state = data.get("state", False)
-                        self.app.add_log(f"📥 Demande de prise en charge : {feature} -> {state}")
+                        self.app.add_log(
+                            f"📥 Demande de prise en charge : {feature} -> {state}"
+                        )
                         # Activer localement via l'UI
                         self.app.handle_feature_ack(feature, state, "ok")
                         # Répondre avec un feature_ack à la Gateway
-                        asyncio.create_task(self.send_json({
-                            "type": "feature_ack",
-                            "feature": feature,
-                            "state": state,
-                            "status": "ok"
-                        }))
+                        asyncio.create_task(
+                            self.send_json(
+                                {
+                                    "type": "feature_ack",
+                                    "feature": feature,
+                                    "state": state,
+                                    "status": "ok",
+                                }
+                            )
+                        )
 
                     elif msg_type == "feature_ack":
                         self.app.handle_feature_ack(
@@ -199,7 +232,12 @@ class GatewayClient:
                         )
 
                     else:
-                        if msg_type not in ["telemetry_diagnostics", "diagnostics", "ping", "pong"]:
+                        if msg_type not in [
+                            "telemetry_diagnostics",
+                            "diagnostics",
+                            "ping",
+                            "pong",
+                        ]:
                             # Message générique — on le logue brièvement
                             self.app.add_log(f"📨 Message [{msg_type}] reçu.")
 
@@ -223,7 +261,7 @@ class GatewayClient:
                 response_text = "Moteur LLM non disponible."
 
             self.app.add_log(f"📤 Réponse LLM : '{response_text}'")
-            self.app.add_gateway_log(f"🤖 Bastet :\n\"{response_text}\"")
+            self.app.add_gateway_log(f'🤖 Bastet :\n"{response_text}"')
 
             # Envoi via WebSocket (type chat_response — relayé au robot par la Gateway)
             await self.send_json({"type": "chat_response", "text": response_text})
@@ -240,11 +278,7 @@ class GatewayClient:
         Si la Gateway l'accepte, elle répondra par un 'feature_ack' que nous
         intercepterons dans la boucle listen_loop pour activer le module.
         """
-        req = {
-            "type": "feature_request",
-            "feature": feature,
-            "state": state
-        }
+        req = {"type": "feature_request", "feature": feature, "state": state}
         self.send_message_threadsafe(req)
 
     # ──────────────────────────────────────────────
@@ -262,6 +296,4 @@ class GatewayClient:
     def send_message_threadsafe(self, payload: dict):
         """Envoie un message JSON depuis un thread non-asyncio."""
         if self.websocket and hasattr(self.app, "loop"):
-            asyncio.run_coroutine_threadsafe(
-                self.send_json(payload), self.app.loop
-            )
+            asyncio.run_coroutine_threadsafe(self.send_json(payload), self.app.loop)

@@ -34,7 +34,9 @@ class SettingsWindow(ctk.CTkToplevel):
         # SSL Verification Checkbox
         self.verify_ssl_var = ctk.BooleanVar(value=parent.verify_ssl)
         self.ssl_cb = ctk.CTkCheckBox(
-            self, text="Vérifier le certificat SSL (Recommandé)", variable=self.verify_ssl_var
+            self,
+            text="Vérifier le certificat SSL (Recommandé)",
+            variable=self.verify_ssl_var,
         )
         self.ssl_cb.pack(pady=(10, 5), padx=20, anchor="w")
 

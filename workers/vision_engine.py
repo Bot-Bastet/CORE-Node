@@ -119,9 +119,14 @@ class VisionEngine:
 
         while self.running:
             # Charger YOLO dans le thread de traitement si demandé
-            if self.yolo_enabled and (self.yolo_model is None or self.current_yolo_model_name != self.yolo_model_name_to_load):
+            if self.yolo_enabled and (
+                self.yolo_model is None
+                or self.current_yolo_model_name != self.yolo_model_name_to_load
+            ):
                 model_name = self.yolo_model_name_to_load
-                print(f"VisionEngine: Chargement de {model_name} dans le thread de traitement...")
+                print(
+                    f"VisionEngine: Chargement de {model_name} dans le thread de traitement..."
+                )
                 from ultralytics import YOLO
                 import torch
 
@@ -236,7 +241,7 @@ class VisionEngine:
                     cv2.destroyWindow(window_name)
                 except Exception:
                     pass
-                time.sleep(0.03) # limiter la conso CPU si pas affiché
+                time.sleep(0.03)  # limiter la conso CPU si pas affiché
 
     def stop(self):
         self.running = False
