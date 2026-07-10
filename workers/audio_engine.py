@@ -380,3 +380,27 @@ class AudioEngine:
                 pythoncom.CoUninitialize()
             except Exception:
                 pass
+
+    def unload_models(self):
+        """Décharge les modèles lourds (Whisper, Bark, Piper) de la mémoire."""
+        print("AudioEngine: Déchargement de tous les modèles audio de la mémoire...")
+        self.whisper_model = None
+        self.current_whisper_model = None
+        self.piper_voice = None
+        self.bark_model = None
+        self.bark_processor = None
+
+        import gc
+        import sys
+
+        gc.collect()
+        if "torch" in sys.modules:
+            try:
+                import torch
+
+                if torch.cuda.is_available():
+                    torch.cuda.empty_cache()
+                if hasattr(torch, "mps") and torch.mps.is_available():
+                    torch.mps.empty_cache()
+            except Exception:
+                pass

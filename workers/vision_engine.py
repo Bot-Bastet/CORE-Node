@@ -141,6 +141,26 @@ class VisionEngine:
                 except Exception as e:
                     print(f"VisionEngine: Erreur lors du chargement de YOLO: {e}")
 
+            # Décharger YOLO de la mémoire s'il est désactivé mais toujours présent
+            if not self.yolo_enabled and self.yolo_model is not None:
+                print("VisionEngine: Déchargement du modèle YOLO de la mémoire...")
+                self.yolo_model = None
+                self.current_yolo_model_name = ""
+                import gc
+                import sys
+
+                gc.collect()
+                if "torch" in sys.modules:
+                    try:
+                        import torch
+
+                        if torch.cuda.is_available():
+                            torch.cuda.empty_cache()
+                        if hasattr(torch, "mps") and torch.mps.is_available():
+                            torch.mps.empty_cache()
+                    except Exception:
+                        pass
+
             # Si aucune fonctionnalité visuelle n'est activée, on dort et on libère la caméra
             if not self.yolo_enabled and not self.face_rec_enabled:
                 if cap is not None:

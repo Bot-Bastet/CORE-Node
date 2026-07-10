@@ -628,6 +628,13 @@ class CoreNodeApp(ctk.CTk):
                 text="▶ Lancer", fg_color="green", hover_color="darkgreen"
             )
             self.model_status_label.configure(text="Statut : Stoppé", text_color="gray")
+
+            # Décharger le modèle LLM local de la mémoire
+            def _stop():
+                if self.llm_engine:
+                    self.llm_engine.unload_model()
+
+            threading.Thread(target=_stop, daemon=True).start()
         else:
             model = self.llm_optionmenu.get()
             if model and model not in [
@@ -781,6 +788,11 @@ class CoreNodeApp(ctk.CTk):
                     self.audio_engine.enable_continuous_listening(
                         state, self.process_audio_pipeline
                     )
+                    if not state:
+                        # Décharger les modèles audio lourds de la mémoire en arrière-plan
+                        threading.Thread(
+                            target=self.audio_engine.unload_models, daemon=True
+                        ).start()
 
             # Gérer le flux vidéo sur demande (On-Demand) pour YOLO / FaceRec
             if feature in ["yolo", "face_rec"]:

@@ -83,3 +83,20 @@ class LLMEngine:
                 return f"Erreur API Ollama: {response.status_code}"
         except Exception as e:
             return f"Erreur de connexion à Ollama: {str(e)}"
+
+    def unload_model(self):
+        """Décharge explicitement le modèle Ollama en cours de la mémoire."""
+        if not self.current_model or self.current_model in [
+            "Aucun modèle",
+            "Chargement...",
+        ]:
+            return
+
+        print(f"LLMEngine: Déchargement du modèle '{self.current_model}'")
+        payload = {"model": self.current_model, "prompt": "", "keep_alive": 0}
+        try:
+            requests.post(self.ollama_url, json=payload, timeout=5)
+        except Exception as e:
+            print(f"LLMEngine: Erreur lors du déchargement du modèle: {e}")
+
+        self.current_model = None
