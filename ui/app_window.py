@@ -301,6 +301,7 @@ class CoreNodeApp(ctk.CTk):
         self.right_sidebar = ctk.CTkFrame(self, width=350, corner_radius=0)
         self.right_sidebar.grid(row=0, column=2, sticky="nsew")
         self.right_sidebar.grid_rowconfigure(1, weight=1)
+        self.right_sidebar.grid_rowconfigure(2, weight=0)
         self.right_sidebar.grid_columnconfigure(0, weight=1)
 
         self.gateway_logs_title = ctk.CTkLabel(
@@ -316,8 +317,31 @@ class CoreNodeApp(ctk.CTk):
             fg_color="#12121a",
             text_color="#e2e8f0",
         )
-        self.gateway_log_box.grid(row=1, column=0, padx=10, pady=(0, 20), sticky="nsew")
+        self.gateway_log_box.grid(row=1, column=0, padx=10, pady=(0, 10), sticky="nsew")
         self.gateway_log_box.configure(state="disabled")
+
+        # Chat Input Frame at the bottom of Right Sidebar
+        self.gateway_input_frame = ctk.CTkFrame(
+            self.right_sidebar, fg_color="transparent"
+        )
+        self.gateway_input_frame.grid(
+            row=2, column=0, padx=10, pady=(0, 20), sticky="ew"
+        )
+        self.gateway_input_frame.grid_columnconfigure(0, weight=1)
+
+        self.gateway_input_entry = ctk.CTkEntry(
+            self.gateway_input_frame, placeholder_text="Écrire à Bastet..."
+        )
+        self.gateway_input_entry.grid(row=0, column=0, padx=(0, 5), sticky="ew")
+        self.gateway_input_entry.bind("<Return>", lambda event: self.send_chat_to_ai())
+
+        self.gateway_send_btn = ctk.CTkButton(
+            self.gateway_input_frame,
+            text="Envoyer",
+            width=70,
+            command=self.send_chat_to_ai,
+        )
+        self.gateway_send_btn.grid(row=0, column=1, sticky="e")
 
         # ─── Loading Overlay ───
         self.loading_overlay = ctk.CTkFrame(self, fg_color="#0a0a0a", corner_radius=0)
@@ -870,6 +894,42 @@ class CoreNodeApp(ctk.CTk):
                     hover_color="#2563eb",
                 ),
             )
+
+    def send_chat_to_ai(self):
+        text = self.gateway_input_entry.get().strip()
+        if not text:
+            return
+
+        self.gateway_input_entry.delete(0, "end")
+        self.add_gateway_log(f'👤 [CHAT LOCAL]\n💬 Message : "{text}"')
+
+        threading.Thread(
+            target=self._process_local_chat_thread, args=(text,), daemon=True
+        ).start()
+
+    def _process_local_chat_thread(self, prompt: str):
+        try:
+            model = self.llm_optionmenu.get()
+            if not self.model_running or not self.llm_engine:
+                reponse = "Je suis désolé, mon cerveau LLM n'est pas démarré."
+            else:
+                self.llm_engine.load_model(model)
+                reponse = self.llm_engine.generate_response(prompt)
+
+            self.add_gateway_log(f'🤖 [CHAT LOCAL - REPONSE]\n💬 Réponse : "{reponse}"')
+            self.after(
+                0, lambda: self.response_label.configure(text=f"Robot : {reponse}")
+            )
+
+            try:
+                tts_choice = self.tts_optionmenu.get()
+                self.audio_engine.process_tts(reponse, tts_choice)
+            except Exception as tts_err:
+                self.add_log(f"⚠️ Erreur TTS locale : {tts_err}")
+
+        except Exception as e:
+            self.add_log(f"Erreur lors du chat local avec l'IA : {e}")
+            self.add_gateway_log(f"❌ Erreur chat local : {e}")
 
     def on_closing(self):
         self.add_log(
