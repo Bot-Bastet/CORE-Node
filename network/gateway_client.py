@@ -191,7 +191,13 @@ class GatewayClient:
                         prompt = data.get("text", "")
                         context = data.get("context", "")
                         self.app.add_log(f"📥 Chat reçu : '{prompt}'")
-                        self.app.add_gateway_log(f'👤 Humain (via robot) :\n"{prompt}"')
+                        raw_log = (
+                            f"👤 [CHAT ENTRANT - GATEWAY]\n"
+                            f'💬 Message : "{prompt}"\n'
+                            f'📅 Contexte : "{context}"\n'
+                            f"⚙️ Payload JSON :\n{json.dumps(data, ensure_ascii=False, indent=2)}"
+                        )
+                        self.app.add_gateway_log(raw_log)
                         asyncio.create_task(self._process_chat(prompt, context))
 
                     elif msg_type == "request_camera":
@@ -261,10 +267,16 @@ class GatewayClient:
                 response_text = "Moteur LLM non disponible."
 
             self.app.add_log(f"📤 Réponse LLM : '{response_text}'")
-            self.app.add_gateway_log(f'🤖 Bastet :\n"{response_text}"')
+            response_payload = {"type": "chat_response", "text": response_text}
+            raw_response = (
+                f"🤖 [CHAT SORTANT - GATEWAY]\n"
+                f'💬 Réponse : "{response_text}"\n'
+                f"⚙️ Payload JSON :\n{json.dumps(response_payload, ensure_ascii=False, indent=2)}"
+            )
+            self.app.add_gateway_log(raw_response)
 
             # Envoi via WebSocket (type chat_response — relayé au robot par la Gateway)
-            await self.send_json({"type": "chat_response", "text": response_text})
+            await self.send_json(response_payload)
 
         except Exception as e:
             self.app.add_log(f"❌ Erreur inférence/envoi : {e}")
