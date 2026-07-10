@@ -14,3 +14,4 @@ transformers
 piper-tts
 setuptools<82.0.0
 lapx>=0.5.2
+certifi

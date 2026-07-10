@@ -38,8 +38,9 @@ class GatewayClient:
         """Effectue un POST REST synchrone vers la Gateway."""
         url = f"{self._rest_base}{path}"
         try:
-            r = requests.post(url, json=payload, headers=self._rest_headers,
-                              verify=False, timeout=8)
+            headers = {"X-API-Token": self.app.gateway_token}
+            r = requests.post(url, json=payload, headers=headers,
+                              verify=self.app.verify_ssl, timeout=8)
             if r.status_code < 300:
                 try:
                     return r.json()
@@ -56,8 +57,9 @@ class GatewayClient:
         """Effectue un GET REST synchrone vers la Gateway."""
         url = f"{self._rest_base}{path}"
         try:
-            r = requests.get(url, headers=self._rest_headers,
-                             verify=False, timeout=8)
+            headers = {"X-API-Token": self.app.gateway_token}
+            r = requests.get(url, headers=headers,
+                             verify=self.app.verify_ssl, timeout=8)
             if r.status_code < 300:
                 return r.json()
             else:
@@ -71,17 +73,25 @@ class GatewayClient:
     # WebSocket – connexion principale
     # ──────────────────────────────────────────────
     async def connect(self):
-        ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
-        ssl_context.check_hostname = False
-        ssl_context.verify_mode = ssl.CERT_NONE
-
         while True:
+            # Configurer le contexte SSL de manière sécurisée ou non selon les paramètres
+            if getattr(self.app, "verify_ssl", True):
+                try:
+                    import certifi
+                    ssl_context = ssl.create_default_context(cafile=certifi.where())
+                except ImportError:
+                    ssl_context = ssl.create_default_context()
+            else:
+                ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+                ssl_context.check_hostname = False
+                ssl_context.verify_mode = ssl.CERT_NONE
             self._reconnect_event.clear()
             self.app.update_connection_status(False)
 
             url_to_use = self.app.gateway_url
+            token_to_use = self.app.gateway_token
             if "?token=" not in url_to_use:
-                url_to_use = f"{url_to_use}?token={self.token}"
+                url_to_use = f"{url_to_use}?token={token_to_use}"
             use_ssl = ssl_context if url_to_use.startswith("wss") else None
 
             # Mettre à jour la base REST si l'URL a changé depuis l'UI
@@ -108,7 +118,7 @@ class GatewayClient:
                 self.app.add_log(f"Connexion à {url_to_use}...")
                 async with websockets.connect(
                     url_to_use,
-                    extra_headers={"X-API-Token": self.token},
+                    extra_headers={"X-API-Token": self.app.gateway_token},
                     ssl=use_ssl,
                 ) as ws:
                     self.websocket = ws

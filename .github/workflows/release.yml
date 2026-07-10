@@ -240,6 +240,7 @@ jobs:
             --hidden-import "customtkinter" `
             --hidden-import "websockets" `
             --hidden-import "requests" `
+            --hidden-import "certifi" `
             --hidden-import "sounddevice" `
             --hidden-import "scipy" `
             --hidden-import "scipy.io.wavfile" `
@@ -317,6 +318,7 @@ jobs:
             --hidden-import "customtkinter" \
             --hidden-import "websockets" \
             --hidden-import "requests" \
+            --hidden-import "certifi" \
             --hidden-import "sounddevice" \
             --hidden-import "scipy" \
             --hidden-import "scipy.io.wavfile" \

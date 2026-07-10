@@ -20,6 +20,7 @@ class CoreNodeApp(ctk.CTk):
 
         self.gateway_url = "wss://ha.arthonetwork.fr:44888/ws/node"
         self.gateway_token = "bst_c9f28d3a1e4b85c7f0d4b9a2e6f1c3d5"
+        self.verify_ssl = True
         if self.vision_engine:
             self.vision_engine.token = self.gateway_token
         self.node_coordinates = "Node-Salon"
