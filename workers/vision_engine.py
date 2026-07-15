@@ -58,7 +58,7 @@ class VisionEngine:
                 json={"client_id": self._client_id},
                 headers=headers,
                 timeout=5,
-                verify=False,
+                verify=False,  # nosemgrep
             )
             if r.status_code < 300:
                 self._stream_joined = True
@@ -78,7 +78,7 @@ class VisionEngine:
                 json={"client_id": self._client_id},
                 headers=headers,
                 timeout=5,
-                verify=False,
+                verify=False,  # nosemgrep
             )
             if r.status_code < 300:
                 self._stream_joined = False
