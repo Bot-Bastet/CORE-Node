@@ -1,5 +1,6 @@
 import threading
 import time
+import uuid
 import cv2
 import requests
 import os
@@ -25,11 +26,13 @@ def remove_accents(input_str):
 
 class VisionEngine:
     def __init__(
-        self, gateway_url="http://127.0.0.1:8001", rtsp_url="rtsp://127.0.0.1:8554/cam1"
+        self, gateway_url="http://127.0.0.1:44888", rtsp_url="rtsp://127.0.0.1:48554/robot/cam1"
     ):
         self.gateway_url = gateway_url
         self.rtsp_url = rtsp_url
         self.token = ""
+        self._client_id = f"node-{uuid.uuid4().hex[:12]}"
+        self._stream_joined = False
 
         self.yolo_enabled = False
         self.yolo_model = None
@@ -44,6 +47,46 @@ class VisionEngine:
         self.running = True
         self.thread = threading.Thread(target=self._process_loop, daemon=True)
         self.thread.start()
+
+    def _join_stream(self, cam_id: int = 1):
+        if self._stream_joined:
+            return
+        headers = {"X-API-Token": self.token}
+        try:
+            r = requests.post(
+                f"{self.gateway_url}/api/streams/{cam_id}/join",
+                json={"client_id": self._client_id},
+                headers=headers,
+                timeout=5,
+                verify=False,
+            )
+            if r.status_code < 300:
+                self._stream_joined = True
+                print(f"VisionEngine: Flux cam{cam_id} rejoint via REST (client={self._client_id})")
+            else:
+                print(f"VisionEngine: Join REST échoué ({r.status_code}): {r.text[:100]}")
+        except Exception as e:
+            print(f"VisionEngine: Erreur join REST: {e}")
+
+    def _leave_stream(self, cam_id: int = 1):
+        if not self._stream_joined:
+            return
+        headers = {"X-API-Token": self.token}
+        try:
+            r = requests.delete(
+                f"{self.gateway_url}/api/streams/{cam_id}/leave",
+                json={"client_id": self._client_id},
+                headers=headers,
+                timeout=5,
+                verify=False,
+            )
+            if r.status_code < 300:
+                self._stream_joined = False
+                print(f"VisionEngine: Flux cam{cam_id} quitté via REST")
+            else:
+                print(f"VisionEngine: Leave REST échoué ({r.status_code})")
+        except Exception as e:
+            print(f"VisionEngine: Erreur leave REST: {e}")
 
     def enable_yolo(self, state: bool, model_name="yolov8n.pt"):
         self.yolo_enabled = state
@@ -163,6 +206,7 @@ class VisionEngine:
 
             # Si aucune fonctionnalité visuelle n'est activée, on dort et on libère la caméra
             if not self.yolo_enabled and not self.face_rec_enabled:
+                self._leave_stream()
                 if cap is not None:
                     cap.release()
                     cap = None
@@ -176,6 +220,8 @@ class VisionEngine:
             if cap is None or not cap.isOpened():
                 source = self.rtsp_url
                 is_rtsp = source.startswith("rtsp://")
+                if is_rtsp:
+                    self._join_stream()
                 print(f"VisionEngine: Connexion à la source vidéo ({source})...")
                 cap = cv2.VideoCapture(source)
                 if not cap.isOpened() and is_rtsp:
@@ -265,5 +311,6 @@ class VisionEngine:
 
     def stop(self):
         self.running = False
+        self._leave_stream()
         if self.thread.is_alive():
             self.thread.join(timeout=2)

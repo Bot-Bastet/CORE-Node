@@ -237,6 +237,20 @@ class GatewayClient:
                             data.get("feature"), data.get("state"), data.get("status")
                         )
 
+                    elif msg_type == "ai_state_update":
+                        ai_state = data.get("ai_state", {})
+                        self.app.add_log(f"📡 État IA reçu : {ai_state}")
+                        if hasattr(self.app, "handle_ai_state_update"):
+                            self.app.handle_ai_state_update(ai_state)
+
+                    elif msg_type == "robot_posture_sync":
+                        posture = data.get("robot_posture", {})
+                        self.app.add_log(f"🤖 Posture robot : {posture}")
+
+                    elif msg_type == "chat_response":
+                        text = data.get("text", "")
+                        self.app.add_log(f"💬 Réponse robot : '{text}'")
+
                     else:
                         if msg_type not in [
                             "telemetry_diagnostics",
