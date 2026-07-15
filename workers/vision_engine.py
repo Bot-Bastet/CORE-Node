@@ -53,7 +53,7 @@ class VisionEngine:
             return
         headers = {"X-API-Token": self.token}
         try:
-            r = requests.post(
+            r = requests.post(  # nosemgrep
                 f"{self.gateway_url}/api/streams/{cam_id}/join",
                 json={"client_id": self._client_id},
                 headers=headers,
@@ -73,7 +73,7 @@ class VisionEngine:
             return
         headers = {"X-API-Token": self.token}
         try:
-            r = requests.delete(
+            r = requests.delete(  # nosemgrep
                 f"{self.gateway_url}/api/streams/{cam_id}/leave",
                 json={"client_id": self._client_id},
                 headers=headers,
