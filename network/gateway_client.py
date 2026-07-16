@@ -272,11 +272,44 @@ class GatewayClient:
     # ──────────────────────────────────────────────
     async def _process_chat(self, prompt: str, context: str):
         try:
+            # Construire le contexte complet : orchestrateur (face + MyGes + YOLO) + gateway
+            full_context_parts = []
+
+            # Contexte de l'orchestrateur (utilisateur identifié, agenda, objets)
+            if hasattr(self.app, "orchestrator") and self.app.orchestrator:
+                orch_ctx = self.app.orchestrator.get_current_context()
+                if orch_ctx:
+                    full_context_parts.append(orch_ctx)
+
+                # Ajouter le contexte YOLO si disponible
+                if hasattr(self.app.vision_engine, "last_yolo_detections"):
+                    yolo_ctx = self.app.vision_engine.last_yolo_detections
+                    if yolo_ctx:
+                        full_context_parts.append(f"Objets visibles dans le champ de la caméra : {yolo_ctx}")
+
+            # Contexte de la gateway (agenda injecté par le robot)
+            if context:
+                full_context_parts.append(f"Contexte du robot :\n{context}")
+
+            full_context = "\n\n".join(full_context_parts) if full_context_parts else None
+
+            # Inférence LLM avec contexte complet
             if self.app.llm_engine:
                 self.app.add_log("🧠 Inférence LLM en cours...")
-                response_text = await asyncio.to_thread(
-                    self.app.llm_engine.generate_response, prompt, context=context
+                response_text, actions = await asyncio.to_thread(
+                    self.app.llm_engine.generate_response,
+                    prompt,
+                    system_context=full_context,
                 )
+
+                # Exécuter les actions extraites (mouvements robot)
+                if actions:
+                    for action in actions:
+                        self.app.add_log(f"🤖 Action: {action['name']}({action['args']})")
+                        await self.send_json({
+                            "type": "arduino_cmd",
+                            "cmd": action["args"].get("direction", action["args"].get("posture", "stop")),
+                        })
             else:
                 response_text = "Moteur LLM non disponible."
 

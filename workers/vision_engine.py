@@ -48,6 +48,9 @@ class VisionEngine:
         self.on_face_lost = None        # () → None
         self._last_identified_name: str | None = None
 
+        # Tracking des détections YOLO (pour le contexte LLM)
+        self.last_yolo_detections: str = ""
+
         self.show_window = False
         self.running = True
         self.thread = threading.Thread(target=self._process_loop, daemon=True)
@@ -250,10 +253,23 @@ class VisionEngine:
 
             # 1. Traitement YOLO (en premier pour ne pas écraser les dessins FaceRec)
             if self.yolo_enabled and self.yolo_model is not None:
-                # YOLOv8 dessine les boîtes automatiquement avec results[0].plot()
-                # On baisse la confiance à 0.2 pour détecter plus facilement les téléphones
                 results = self.yolo_model.predict(frame, verbose=False, conf=0.2)
                 frame = results[0].plot()
+
+                # Tracker les objets détectés pour le contexte LLM
+                detected = []
+                for r in results:
+                    for box in r.boxes:
+                        cls_id = int(box.cls[0])
+                        cls_name = r.names.get(cls_id, str(cls_id))
+                        conf = float(box.conf[0])
+                        if conf > 0.3:
+                            detected.append(cls_name)
+                if detected:
+                    unique = list(dict.fromkeys(detected))  # dédoublonner en gardant l'ordre
+                    self.last_yolo_detections = ", ".join(unique)
+                else:
+                    self.last_yolo_detections = ""
 
             # Redimensionner pour optimiser la reconnaissance faciale (plus rapide)
             small_frame = cv2.resize(frame, (0, 0), fx=0.5, fy=0.5)

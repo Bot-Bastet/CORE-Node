@@ -9,11 +9,12 @@ ctk.set_default_color_theme("blue")
 
 
 class CoreNodeApp(ctk.CTk):
-    def __init__(self, audio_engine=None, llm_engine=None, vision_engine=None):
+    def __init__(self, audio_engine=None, llm_engine=None, vision_engine=None, orchestrator=None):
         super().__init__()
         self.audio_engine = audio_engine
         self.llm_engine = llm_engine
         self.vision_engine = vision_engine
+        self.orchestrator = orchestrator
 
         self.title("Bastet CORE-Node")
         self.geometry("1100x750")
@@ -867,17 +868,42 @@ class CoreNodeApp(ctk.CTk):
             model = self.llm_optionmenu.get()
             if not self.model_running or not self.llm_engine:
                 reponse = "Je suis désolé, mon cerveau LLM n'est pas démarré."
+                actions = []
             else:
                 self.llm_engine.load_model(model)
                 self.add_gateway_log(
                     "🧠 LLM : Génération de la réponse en cours avec le contexte visuel/MyGES..."
                 )
+
+                # Construire le contexte complet
+                system_context = None
+                if self.orchestrator:
+                    ctx_parts = []
+                    orch_ctx = self.orchestrator.get_current_context()
+                    if orch_ctx:
+                        ctx_parts.append(orch_ctx)
+                    if hasattr(self.vision_engine, "last_yolo_detections") and self.vision_engine.last_yolo_detections:
+                        ctx_parts.append(f"Objets visibles : {self.vision_engine.last_yolo_detections}")
+                    if ctx_parts:
+                        system_context = "\n\n".join(ctx_parts)
+
                 if self.llm_native_audio_var.get():
-                    reponse = self.llm_engine.generate_response(
-                        texte_transcrit, audio_path=wav_path
+                    reponse, actions = self.llm_engine.generate_response(
+                        texte_transcrit, audio_path=wav_path, system_context=system_context
                     )
                 else:
-                    reponse = self.llm_engine.generate_response(texte_transcrit)
+                    reponse, actions = self.llm_engine.generate_response(
+                        texte_transcrit, system_context=system_context
+                    )
+
+                # Exécuter les actions
+                for action in actions:
+                    self.add_log(f"🤖 Action: {action['name']}({action['args']})")
+                    if self.gateway_client:
+                        self.gateway_client.send_message_threadsafe({
+                            "type": "arduino_cmd",
+                            "cmd": action["args"].get("direction", action["args"].get("posture", "stop")),
+                        })
 
             self.after(
                 0, lambda r=reponse: self.response_label.configure(text=f"Robot : {r}")
@@ -926,7 +952,31 @@ class CoreNodeApp(ctk.CTk):
                 reponse = "Je suis désolé, mon cerveau LLM n'est pas démarré."
             else:
                 self.llm_engine.load_model(model)
-                reponse = self.llm_engine.generate_response(prompt)
+
+                # Construire le contexte complet depuis l'orchestrateur
+                system_context = None
+                if self.orchestrator:
+                    ctx_parts = []
+                    orch_ctx = self.orchestrator.get_current_context()
+                    if orch_ctx:
+                        ctx_parts.append(orch_ctx)
+                    if hasattr(self.vision_engine, "last_yolo_detections") and self.vision_engine.last_yolo_detections:
+                        ctx_parts.append(f"Objets visibles : {self.vision_engine.last_yolo_detections}")
+                    if ctx_parts:
+                        system_context = "\n\n".join(ctx_parts)
+
+                reponse, actions = self.llm_engine.generate_response(
+                    prompt, system_context=system_context
+                )
+
+                # Exécuter les actions
+                for action in actions:
+                    self.add_log(f"🤖 Action: {action['name']}({action['args']})")
+                    if self.gateway_client:
+                        self.gateway_client.send_message_threadsafe({
+                            "type": "arduino_cmd",
+                            "cmd": action["args"].get("direction", action["args"].get("posture", "stop")),
+                        })
 
             self.add_gateway_log(f'🤖 [CHAT LOCAL - REPONSE]\n💬 Réponse : "{reponse}"')
             self.after(
