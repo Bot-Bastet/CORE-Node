@@ -124,13 +124,23 @@ class CoreNodeApp(ctk.CTk):
         )
         self.show_video_checkbox.grid(row=3, column=0, sticky="w", pady=5)
 
+        self.simulation_var = ctk.BooleanVar(value=False)
+        self.simulation_checkbox = ctk.CTkCheckBox(
+            self.main_frame,
+            text="🎥 Mode Simulation (Webcam locale au lieu du stream robot)",
+            variable=self.simulation_var,
+            command=self.on_simulation_toggle,
+            text_color="#ff9900",
+        )
+        self.simulation_checkbox.grid(row=4, column=0, sticky="w", pady=5)
+
         # Section Audio
         self.audio_label = ctk.CTkLabel(
             self.main_frame,
             text="Module Audio (Offloading)",
             font=ctk.CTkFont(size=16, weight="bold"),
         )
-        self.audio_label.grid(row=4, column=0, sticky="w", pady=(20, 10))
+        self.audio_label.grid(row=5, column=0, sticky="w", pady=(20, 10))
 
         self.audio_var = ctk.BooleanVar(value=False)
         self.audio_checkbox = ctk.CTkCheckBox(
@@ -144,10 +154,10 @@ class CoreNodeApp(ctk.CTk):
                 self.audio_var,
             ),
         )
-        self.audio_checkbox.grid(row=5, column=0, sticky="w", pady=5)
+        self.audio_checkbox.grid(row=6, column=0, sticky="w", pady=5)
 
         self.audio_models_frame = ctk.CTkFrame(self.main_frame, fg_color="transparent")
-        self.audio_models_frame.grid(row=6, column=0, sticky="w", pady=5, padx=20)
+        self.audio_models_frame.grid(row=7, column=0, sticky="w", pady=5, padx=20)
 
         ctk.CTkLabel(self.audio_models_frame, text="Modèle STT :").grid(
             row=0, column=0, sticky="w", padx=5
@@ -192,7 +202,7 @@ class CoreNodeApp(ctk.CTk):
         self.test_audio_frame = ctk.CTkFrame(
             self.main_frame, border_width=1, border_color="#2d2d3d"
         )
-        self.test_audio_frame.grid(row=7, column=0, sticky="ew", pady=(15, 5))
+        self.test_audio_frame.grid(row=8, column=0, sticky="ew", pady=(15, 5))
 
         self.test_title = ctk.CTkLabel(
             self.test_audio_frame,
@@ -229,10 +239,10 @@ class CoreNodeApp(ctk.CTk):
             text="Modèle LLM (100% Local via Ollama)",
             font=ctk.CTkFont(size=16, weight="bold"),
         )
-        self.llm_label.grid(row=8, column=0, sticky="w", pady=(20, 10))
+        self.llm_label.grid(row=9, column=0, sticky="w", pady=(20, 10))
 
         self.llm_frame = ctk.CTkFrame(self.main_frame, fg_color="transparent")
-        self.llm_frame.grid(row=9, column=0, sticky="ew")
+        self.llm_frame.grid(row=10, column=0, sticky="ew")
 
         self.llm_optionmenu = ctk.CTkOptionMenu(
             self.llm_frame,
@@ -262,7 +272,7 @@ class CoreNodeApp(ctk.CTk):
         self.model_status_label = ctk.CTkLabel(
             self.main_frame, text="Statut : Aucun modèle démarré", text_color="gray"
         )
-        self.model_status_label.grid(row=10, column=0, sticky="w", pady=(5, 15))
+        self.model_status_label.grid(row=11, column=0, sticky="w", pady=(5, 15))
 
         # Installer un nouveau modèle
         self.install_label = ctk.CTkLabel(
@@ -270,10 +280,10 @@ class CoreNodeApp(ctk.CTk):
             text="Installer un nouveau modèle (ex: mistral:latest) :",
             font=ctk.CTkFont(size=12),
         )
-        self.install_label.grid(row=11, column=0, sticky="w")
+        self.install_label.grid(row=12, column=0, sticky="w")
 
         self.install_frame = ctk.CTkFrame(self.main_frame, fg_color="transparent")
-        self.install_frame.grid(row=12, column=0, sticky="ew", pady=5)
+        self.install_frame.grid(row=13, column=0, sticky="ew", pady=5)
 
         self.install_entry = ctk.CTkEntry(
             self.install_frame, placeholder_text="hermes:latest", width=250
@@ -442,6 +452,35 @@ class CoreNodeApp(ctk.CTk):
         self.add_log(f"⚙️ Affichage vidéo {'activé' if val else 'désactivé'}.")
         if self.vision_engine:
             self.vision_engine.show_window = val
+
+    def on_simulation_toggle(self):
+        val = self.simulation_var.get()
+        if val:
+            self.add_log("🎥 Mode Simulation activé — Webcam locale au lieu du stream robot.")
+            if self.vision_engine:
+                self.vision_engine.simulation_mode = True
+                self.vision_engine.show_window = True
+                self.show_video_var.set(True)
+            # Activer face_rec et yolo automatiquement en simulation
+            if not self.face_var.get():
+                self.face_var.set(True)
+                if self.vision_engine:
+                    threading.Thread(
+                        target=self.vision_engine.enable_face_rec,
+                        args=(True,),
+                        daemon=True,
+                    ).start()
+                self.add_log("👤 Reconnaissance faciale activée pour la simulation.")
+            if not self.yolo_var.get():
+                self.yolo_var.set(True)
+                if self.vision_engine:
+                    self.vision_engine.enable_yolo(True, model_name=self.yolo_optionmenu.get())
+                self.add_log("🔍 YOLO activé pour la simulation.")
+        else:
+            self.add_log("🎥 Mode Simulation désactivé.")
+            if self.vision_engine:
+                self.vision_engine.simulation_mode = False
+                self.vision_engine.show_window = self.show_video_var.get()
 
     def on_stt_changed(self, choice):
         self.add_log(

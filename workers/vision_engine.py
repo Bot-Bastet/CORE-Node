@@ -51,6 +51,9 @@ class VisionEngine:
         # Tracking des détections YOLO (pour le contexte LLM)
         self.last_yolo_detections: str = ""
 
+        # Mode simulation : utilise la webcam locale au lieu du stream robot
+        self.simulation_mode = False
+
         self.show_window = False
         self.running = True
         self.thread = threading.Thread(target=self._process_loop, daemon=True)
@@ -212,8 +215,8 @@ class VisionEngine:
                     except Exception:
                         pass
 
-            # Si aucune fonctionnalité visuelle n'est activée, on dort et on libère la caméra
-            if not self.yolo_enabled and not self.face_rec_enabled:
+            # Si aucune fonctionnalité visuelle n'est activée (sauf simulation), on dort
+            if not self.yolo_enabled and not self.face_rec_enabled and not self.simulation_mode:
                 self._leave_stream()
                 if cap is not None:
                     cap.release()
@@ -226,15 +229,21 @@ class VisionEngine:
                 continue
 
             if cap is None or not cap.isOpened():
-                source = self.rtsp_url
-                is_rtsp = source.startswith("rtsp://")
-                if is_rtsp:
-                    self._join_stream()
-                print(f"VisionEngine: Connexion à la source vidéo ({source})...")
-                cap = cv2.VideoCapture(source)
-                if not cap.isOpened() and is_rtsp:
-                    print("VisionEngine: Échec RTSP, repli sur la webcam locale (0)...")
-                    cap = cv2.VideoCapture(0)
+                if self.simulation_mode:
+                    # Mode simulation : webcam locale directe
+                    source = 0
+                    print(f"VisionEngine: [SIMULATION] Ouverture webcam locale...")
+                    cap = cv2.VideoCapture(source)
+                else:
+                    source = self.rtsp_url
+                    is_rtsp = source.startswith("rtsp://")
+                    if is_rtsp:
+                        self._join_stream()
+                    print(f"VisionEngine: Connexion à la source vidéo ({source})...")
+                    cap = cv2.VideoCapture(source)
+                    if not cap.isOpened() and is_rtsp:
+                        print("VisionEngine: Échec RTSP, repli sur la webcam locale (0)...")
+                        cap = cv2.VideoCapture(0)
 
                 if not cap.isOpened():
                     print(
@@ -302,23 +311,19 @@ class VisionEngine:
                     identified_name = name if name != "Inconnu" else identified_name
 
                     name_clean = remove_accents(name)
+                    is_known = name != "Inconnu"
 
-                    cv2.rectangle(
-                        frame,
-                        (left * 2, top * 2),
-                        (right * 2, bottom * 2),
-                        (0, 255, 0),
-                        2,
-                    )
-                    cv2.putText(
-                        frame,
-                        name_clean,
-                        (left * 2 + 6, bottom * 2 - 6),
-                        cv2.FONT_HERSHEY_DUPLEX,
-                        0.8,
-                        (255, 255, 255),
-                        1,
-                    )
+                    # Couleur : vert pour connu, rouge pour inconnu
+                    color = (0, 255, 0) if is_known else (0, 0, 255)
+                    label = f"[CONNU] {name_clean}" if is_known else "[INCONNU]"
+
+                    # Fond semi-transparent pour le label
+                    (tw, th), _ = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.6, 1)
+                    cv2.rectangle(frame, (left * 2, bottom * 2 + 5), (left * 2 + tw + 10, bottom * 2 + 5 + th + 10), color, -1)
+                    cv2.putText(frame, label, (left * 2 + 5, bottom * 2 + 5 + th + 5), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 0), 1)
+
+                    # Rectangle autour du visage
+                    cv2.rectangle(frame, (left * 2, top * 2), (right * 2, bottom * 2), color, 2)
 
                 # Notifier l'orchestrateur
                 if identified_name and identified_name != self._last_identified_name:
@@ -330,8 +335,29 @@ class VisionEngine:
                     if self.on_face_lost:
                         self.on_face_lost()
 
-            # Affichage conditionnel de la fenêtre
-            if self.show_window:
+            # Affichage conditionnel de la fenêtre (ou mode simulation)
+            if self.show_window or self.simulation_mode:
+                # Overlay simulation : afficher les infos en temps réel
+                if self.simulation_mode:
+                    h, w = frame.shape[:2]
+                    # Bandeau haut
+                    cv2.rectangle(frame, (0, 0), (w, 36), (20, 20, 20), -1)
+                    status_parts = ["[SIMULATION]"]
+                    if self.yolo_enabled:
+                        status_parts.append("YOLO:ON")
+                    if self.face_rec_enabled:
+                        status_parts.append("FaceRec:ON")
+                    if self.last_yolo_detections:
+                        status_parts.append(f"Objets: {self.last_yolo_detections}")
+                    status_text = " | ".join(status_parts)
+                    cv2.putText(frame, status_text, (10, 25), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 200, 255), 1)
+
+                    # Bandeau bas : contexte utilisateur
+                    if self._last_identified_name:
+                        ctx_text = f"Contexte: {self._last_identified_name}"
+                        cv2.rectangle(frame, (0, h - 30), (w, h), (20, 20, 20), -1)
+                        cv2.putText(frame, ctx_text, (10, h - 8), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 1)
+
                 cv2.imshow(window_name, frame)
                 if cv2.waitKey(1) & 0xFF == ord("q"):
                     break
