@@ -43,6 +43,11 @@ class VisionEngine:
         self.known_face_encodings = []
         self.known_face_names = []
 
+        # Callbacks pour l'orchestrateur
+        self.on_face_identified = None  # (name: str, encoding) → None
+        self.on_face_lost = None        # () → None
+        self._last_identified_name: str | None = None
+
         self.show_window = False
         self.running = True
         self.thread = threading.Thread(target=self._process_loop, daemon=True)
@@ -255,6 +260,7 @@ class VisionEngine:
             rgb_small_frame = cv2.cvtColor(small_frame, cv2.COLOR_BGR2RGB)
 
             # 2. Traitement Face Recognition
+            identified_name = None
             if self.face_rec_enabled and len(self.known_face_encodings) > 0:
                 face_locations = face_recognition.face_locations(rgb_small_frame)
                 face_encodings = face_recognition.face_encodings(
@@ -277,9 +283,10 @@ class VisionEngine:
                         if matches[best_match_index]:
                             name = self.known_face_names[best_match_index]
 
+                    identified_name = name if name != "Inconnu" else identified_name
+
                     name_clean = remove_accents(name)
 
-                    # Dessiner le rectangle visage (on multiplie par 2 car on avait fx=0.5)
                     cv2.rectangle(
                         frame,
                         (left * 2, top * 2),
@@ -296,6 +303,16 @@ class VisionEngine:
                         (255, 255, 255),
                         1,
                     )
+
+                # Notifier l'orchestrateur
+                if identified_name and identified_name != self._last_identified_name:
+                    self._last_identified_name = identified_name
+                    if self.on_face_identified:
+                        self.on_face_identified(identified_name, None)
+                elif not identified_name and self._last_identified_name:
+                    self._last_identified_name = None
+                    if self.on_face_lost:
+                        self.on_face_lost()
 
             # Affichage conditionnel de la fenêtre
             if self.show_window:
